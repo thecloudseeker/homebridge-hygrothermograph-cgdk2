@@ -1,9 +1,7 @@
 # homebridge-hygrothermograph-cgdk2
-This is a modified fork of [homebridge-mi-hygrothermograph](https://github.com/hannseman/homebridge-mi-hygrothermograph) for the Qingping Temp & RH Lite (CGDK2) temperature sensor.
-<!-- [![verified-by-homebridge](https://badgen.net/badge/homebridge/verified/purple)](https://github.com/homebridge/homebridge/wiki/Verified-Plugins)
-[![npm](https://img.shields.io/npm/v/homebridge-mi-hygrothermograph.svg)](https://www.npmjs.com/package/homebridge-mi-hygrothermograph) [![npm](https://img.shields.io/npm/dt/homebridge-mi-hygrothermograph.svg)](https://www.npmjs.com/package/homebridge-mi-hygrothermograph) [![Travis](https://img.shields.io/travis/hannseman/homebridge-mi-hygrothermograph/master.svg)](https://travis-ci.com/hannseman/homebridge-mi-hygrothermograph) [![Coveralls github](https://img.shields.io/coveralls/github/hannseman/homebridge-mi-hygrothermograph/master.svg)](https://coveralls.io/github/hannseman/homebridge-mi-hygrothermograph?branch=master) -->
+This is a modified fork of [homebridge-mi-hygrothermograph](https://github.com/hannseman/homebridge-mi-hygrothermograph) for the Qingping Temp & RH Lite (CGDK2) temperature sensor, updated for Homebridge v2 and reworked for more stable Bluetooth scanning.
 
-[Homebridge](https://github.com/nfarina/homebridge) plugin for exposing measured temperature and humidity as [HomeKit](https://www.apple.com/ios/home/) accessories.
+[Homebridge](https://github.com/homebridge/homebridge) plugin for exposing measured temperature and humidity as [HomeKit](https://www.apple.com/ios/home/) accessories.
 
 Supported sensors:
 
@@ -11,34 +9,41 @@ Supported sensors:
 
 ![alt text](images/hygrothermograph.png "Qingping Lite E Thermometer Hygrometer Temperature & Humidity Sensor")
 
+## Compatibility
+
+* Homebridge `1.6.0` or newer, including Homebridge `2.0`.
+* Node.js `18.20.4+`, `20.18.0+`, `22.10.0+`, or `24+`.
+
 ## Installation
-Make sure your system matches the prerequisites. You need to have a C compiler and [Node.js](https://nodejs.org/) newer or equal to version 10.0.0 installed.
+Make sure your system matches the prerequisites. You need to have a C compiler and [Node.js](https://nodejs.org/) installed (see versions above).
 
-[Noble](https://github.com/noble/noble) is BLE central module library for [Node.js](https://nodejs.org/) used to discover and read values from the sensor.
+BLE scanning is provided by [@stoprocent/noble](https://github.com/stoprocent/noble), an actively maintained fork of the original Noble BLE library used to discover and read values from the sensor.
 
- These libraries and their dependencies are required by the [Noble](https://www.npmjs.com/package/noble) library and provide access to the kernel Bluetooth subsystem:
+These libraries and their dependencies are required to provide access to the kernel Bluetooth subsystem:
 
 ```sh
 sudo apt-get install bluetooth bluez libbluetooth-dev libudev-dev
 ```
 
-For more detailed information and descriptions for other platforms please see the [Noble documentation](https://github.com/noble/noble#readme).
+For more detailed information and descriptions for other platforms please see the [noble fork's documentation](https://github.com/stoprocent/noble#readme).
+
 ### Pair with Qingping+ App
 
 Download the iOS or Android Qingping+ App and setup your CGDK2. This causes the temperature sensor to send unencrypted data.
 
 **Note:** This step is necessary.
+
 ### Install homebridge and this plugin
 ```
 [sudo] npm install -g --unsafe-perm homebridge
 [sudo] npm install -g --unsafe-perm homebridge-hygrothermograph-cgdk2
 ```
 
-**Note:** depending on your platform you might need to run `npm install -g`  with root privileges.
+**Note:** depending on your platform you might need to run `npm install -g` with root privileges.
 
-See the [Homebridge documentation](https://github.com/nfarina/homebridge#readme) for more information.
+See the [Homebridge documentation](https://github.com/homebridge/homebridge#readme) for more information.
 
-If you are running Homebridge as another user than `root`  (you should) then some additional configuration needs to be made to allow [Node.js](https://nodejs.org/) access to the kernel Bluetooth subsystem without root privileges.
+If you are running Homebridge as another user than `root` (you should) then some additional configuration needs to be made to allow [Node.js](https://nodejs.org/) access to the kernel Bluetooth subsystem without root privileges.
 
 You'll need to grant the node binary cap_net_raw privileges:
 
@@ -46,7 +51,7 @@ You'll need to grant the node binary cap_net_raw privileges:
 sudo setcap cap_net_raw+eip $(eval readlink -f `which node`)
 ```
 
-Please see the [Noble documentation](https://github.com/noble/noble#running-without-rootsudo) for more details.
+Please see the [noble fork's documentation](https://github.com/stoprocent/noble#running-without-rootsudo) for more details.
 
 
 ## Homebridge configuration
@@ -55,7 +60,7 @@ Update your Homebridge `config.json` file. See [config-sample.json](config-sampl
 ```json
 "accessories": [
     {
-      "accessory": "HygrothermographCgdk2",
+      "accessory": "HygrotermographCGDK2",
       "name": "Temperature & Humidity"
     }
 ]
@@ -63,7 +68,7 @@ Update your Homebridge `config.json` file. See [config-sample.json](config-sampl
 
 | Key                     | Default         | Description                                                                                                                                                                                                 |
 |-------------------------|-----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `accessory`             |                 | Mandatory. The name provided to Homebridge. Must be "HygrothermographCgdk2".                                                                                                                                      |
+| `accessory`             |                 | Mandatory. The name provided to Homebridge. Must be "HygrotermographCGDK2".                                                                                                                                      |
 | `name`                  |                 | Mandatory. The name of this accessory. This will appear in your Home-app.                                                                                                                                   |
 | `address`               |                 | Optional. The address of the device. Used when running multiple devices.                                                                                                                                    |
 | `timeout`               | `15`            | Time in minutes after last contact when the accessory should be regarded as unreachable. If set to `0`, timeout will be disabled.                                                                           |
@@ -82,8 +87,8 @@ Update your Homebridge `config.json` file. See [config-sample.json](config-sampl
 
 
 ### Multiple sensors
-When running just one HygrothermographCgdk2 accessory there is no need to specify the address of the BLE device.
-But if you want to run multiple HygrothermographCgdk2 accessories you need to specify the BLE address for each of them.
+When running just one HygrotermographCGDK2 accessory there is no need to specify the address of the BLE device.
+But if you want to run multiple HygrotermographCGDK2 accessories you need to specify the BLE address for each of them.
 If the address is not specified they will interfere with each other.
 
 The easiest way to find the address of the device is to use `[sudo] hcitool lescan`.
@@ -95,12 +100,12 @@ Update your Homebridge `config.json` and specify the `address` key:
 ```json
 "accessories": [
     {
-      "accessory": "HygrothermographCgdk2",
+      "accessory": "HygrotermographCGDK2",
       "name": "Room 1",
       "address": "4c:64:a8:d0:ae:65"
     },
     {
-      "accessory": "HygrothermographCgdk2",
+      "accessory": "HygrotermographCGDK2",
       "name": "Room 2",
       "address": "2c:34:b3:d4:a1:61"
     }
@@ -126,7 +131,7 @@ The default timeout is 15 minutes but can be changed by specifying the number of
 ```json
 "accessories": [
     {
-      "accessory": "HygrothermographCgdk2",
+      "accessory": "HygrotermographCGDK2",
       "name": "Temperature & Humidity",
       "timeout": 30
     }
@@ -216,7 +221,7 @@ To enable authentication specify the `username` and `password` parameters:
 }
 ```
 
-For more options see the [MQTT.js documentation](https://github.com/mqttjs/MQTT.js/blob/master/README.md#client).
+For more options see the [MQTT.js documentation](https://github.com/mqttjs/MQTT.js#readme).
 Everything set in `mqtt` will be passed to the `options` argument on `Client`.
 The `Client#publish` options `qos` and `retain` can also be configured the same way.
 
@@ -224,7 +229,19 @@ The `Client#publish` options `qos` and `retain` can also be configured the same 
 ## Technical details
 The plugin scans for [Bluetooth Low Energy](https://en.wikipedia.org/wiki/Bluetooth_Low_Energy) peripherals and check the broadcast advertisement packets.
 By only reading the advertisement packet there is no need to establish a connection to the peripheral.
-Inside each packet discovered we look for Service Data with a UUID of `0xfe95`. If found we start trying to parse the actual Service Data to find the temperature and humidity.
+Inside each packet discovered we look for Service Data with a UUID of `0xfdcd`. If found we start trying to parse the actual Service Data to find the temperature and humidity.
+
+### Bluetooth stability
+
+BLE scanning on cheap USB dongles, some Raspberry Pi Bluetooth chips, and certain OS/driver combinations is known to silently die without Node ever finding out about it — the classic symptom is a sensor that stops updating until Homebridge is restarted or someone runs `hcitool lescan` by hand. This fork addresses that directly instead of just documenting it as a known problem:
+
+* Uses [@stoprocent/noble](https://github.com/stoprocent/noble), an actively maintained fork of Noble with better native bindings and support for current Node.js/OS/architecture combinations (the original `@abandonware/noble` dependency has seen no release in over a year and is prone to failing to build on newer Node versions and Apple Silicon).
+* A watchdog checks every 30 seconds whether **any** BLE advertisement has been seen at all in the last 3 minutes (not just from the configured sensor — any nearby BLE device counts). Real environments almost never go that long with zero BLE traffic, so sustained silence reliably indicates the adapter's scan has stalled, and the plugin force-restarts it automatically.
+* Scan restarts (whether triggered by the watchdog or by noble reporting `scanStop`) use capped exponential backoff with jitter, so a genuinely broken adapter doesn't get hammered with restart attempts in a tight loop.
+* A missing `error` listener on noble's shared event emitter used to mean an adapter-level error would crash the entire Homebridge process; this is now handled and logged instead.
+* The plugin now stops scanning and disconnects MQTT cleanly when Homebridge shuts down, rather than leaving the previous scan session dangling.
+
+If you still see stalls, check your dongle/kernel combination — some hardware is unreliable regardless of the userland library (see the notes below).
 
 `50:20:aa:01:be:64:ae:d0:a8:65:4c:0d:10:04:cc:00:8a:01` represents the following:
 
@@ -247,9 +264,9 @@ There is a new very handy automation option in iOS 13 allowing us to convert hom
 Using that you can make rules like "If temperature drops below 21C and someone is at home and it is not during night then turn on heater". Unfortunately you can't normally bind this rule to any timer trigger. However you can use other homebridge plugin which fakes sensor events e.g. every 5 seconds and you can bind that rule to it! Check https://github.com/nitaybz/homebridge-delay-switch
 
 ## Known problems
-Some hardware combinations are problematic and may cause weird troubles like sensor timeout after some time etc.
+Some hardware combinations are problematic and may cause weird troubles like sensor timeout after some time etc. The watchdog described above will automatically recover from these, but if it happens constantly the underlying hardware is worth replacing:
 * Asus BT-400 bluetooth dongle (at least in combination with older RPi 2B)
-* Raspbian Stretch is known to get recurring timeouts with certain RPi-models. Upgrade to Buster or newer and if not possible one can mitigate this by triggering a `hcitool lescan`. Automate this by adding the following to your crontab file: `0 * * * * sudo timeout -s INT 1s hcitool lescan`.
+* Raspbian Stretch is known to get recurring timeouts with certain RPi-models. Upgrading to Buster or newer is recommended.
 
 ## Legal
 

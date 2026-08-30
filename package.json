@@ -7,11 +7,15 @@
     "lint": "eslint ."
   },
   "author": "Ormisum Aaron",
+  "contributors": [
+    "Hannes Ljungberg"
+  ],
   "license": "MIT",
   "keywords": [
     "homebridge-plugin",
     "homekit",
     "xiaomi",
+    "qingping",
     "temperature",
     "humidity",
     "bluetooth"
