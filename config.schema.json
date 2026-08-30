@@ -58,9 +58,9 @@
       },
       "forceDiscoveringDelay": {
         "title": "Force Discovering Interval (seconds)",
-        "type": "integer",
-        "default": 2500,
-        "description": "The delay for when to start scanning again when stopped. Only applicable if forceDiscovering is true."
+        "type": "number",
+        "default": 2.5,
+        "description": "The delay, in seconds, before scanning restarts after it stops unexpectedly. Only applicable if forceDiscovering is true. Retries automatically back off (up to 60s) if the adapter keeps failing to restart."
       },
       "updateInterval": {
         "title": "Update Interval (seconds)",
