@@ -1,5 +1,10 @@
 # Changelog
 
+## 4.0.1
+
+* Set `author` to the current maintainer (thecloudseeker); moved prior authors to `contributors`.
+* Added `publishConfig.access: public` so the scoped package publishes publicly.
+
 ## 4.0.0
 
 * Homebridge 2.0 support. `engines.homebridge` now declares `^1.6.0 || ^2.0.0` and the plugin has been verified against the HAP-NodeJS 2.x API used by Homebridge v2.
