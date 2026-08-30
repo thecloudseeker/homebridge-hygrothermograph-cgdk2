@@ -1,4 +1,10 @@
 # Changelog
+## 4.0.3
+
+* Removed dead/broken code in `lib/parser.js` and fixed a misleading buffer-length check.
+* Fixed lint errors (formatting only) and added CI to enforce lint going forward.
+* Committed `package-lock.json` for reproducible installs.
+
 ## 4.0.2
 
 * Fixed `Characteristic.Model` and `config.schema.json`'s offset fields, both leftover from the original Mi Flora-based project.

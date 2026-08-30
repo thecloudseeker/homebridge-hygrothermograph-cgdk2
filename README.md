@@ -217,13 +217,11 @@ For example, `50:20:aa:bb:cc:dd:ee:ff:00:00:f5:00:26:02:00:00:50` (illustrative,
 
 ### Bluetooth stability
 
-BLE scanning on cheap USB dongles, some Raspberry Pi Bluetooth chips, and certain OS/driver combinations is known to silently die without Node ever finding out about it — the classic symptom is a sensor that stops updating until Homebridge is restarted or someone runs `hcitool lescan` by hand. This fork addresses that directly instead of just documenting it as a known problem:
+BLE scanning on cheap USB dongles, some Raspberry Pi Bluetooth chips, and certain OS/driver combinations is known to silently die without Node ever finding out about it — the classic symptom is a sensor that stops updating until Homebridge is restarted. This fork addresses that directly:
 
-* Uses [@stoprocent/noble](https://github.com/stoprocent/noble), an actively maintained fork of Noble with better native bindings and support for current Node.js/OS/architecture combinations (the original `@abandonware/noble` dependency has seen no release in over a year and is prone to failing to build on newer Node versions and Apple Silicon).
-* A watchdog checks every 30 seconds whether **any** BLE advertisement has been seen at all in the last 3 minutes (not just from the configured sensor — any nearby BLE device counts). Real environments almost never go that long with zero BLE traffic, so sustained silence reliably indicates the adapter's scan has stalled, and the plugin force-restarts it automatically.
-* Scan restarts (whether triggered by the watchdog or by noble reporting `scanStop`) use capped exponential backoff with jitter, so a genuinely broken adapter doesn't get hammered with restart attempts in a tight loop.
-* A missing `error` listener on noble's shared event emitter used to mean an adapter-level error would crash the entire Homebridge process; this is now handled and logged instead.
-* The plugin now stops scanning and disconnects MQTT cleanly when Homebridge shuts down, rather than leaving the previous scan session dangling.
+* Uses [@stoprocent/noble](https://github.com/stoprocent/noble), an actively maintained fork of Noble with better native bindings and support for current Node.js/OS/architecture combinations. The original `@abandonware/noble` dependency is stale and prone to failing to build on newer Node versions and Apple Silicon.
+* A watchdog detects a stalled adapter (no BLE activity at all for 3 minutes) and automatically restarts scanning, backing off if the adapter keeps failing so a genuinely broken one isn't hammered with restart attempts.
+* Adapter-level errors are caught and logged instead of crashing the whole Homebridge process, and scanning/MQTT now shut down cleanly instead of being left dangling.
 
 If you still see stalls, check your dongle/kernel combination — some hardware is unreliable regardless of the userland library.
 
