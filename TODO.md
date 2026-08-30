@@ -2,12 +2,6 @@
 
 Bigger-lift items, not urgent — the plugin works fine without them.
 
-## Bump ESLint to v9
-
-`eslint@8.57.1` is EOL (flagged by npm itself as "no longer supported"). Upgrading
-means migrating `.eslintrc` to the new flat-config format (`eslint.config.js`).
-Dev-only; doesn't affect the published package.
-
 ## Add a test suite
 
 No automated tests exist. `lib/parser.js` (byte-decoding) and `lib/scanner.js`

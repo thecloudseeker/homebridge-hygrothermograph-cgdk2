@@ -1,4 +1,9 @@
 # Changelog
+## 4.0.4
+
+* Bumped ESLint from the EOL 8.57 to 10.9
+* Bumped `fakegato-history` and `mqtt` to their latest versions
+
 ## 4.0.3
 
 * Removed dead/broken code in `lib/parser.js` and fixed a misleading buffer-length check.
