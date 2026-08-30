@@ -1,13 +1,13 @@
 # homebridge-hygrothermograph-cgdk2
-This is a modified fork of [homebridge-mi-hygrothermograph](https://github.com/hannseman/homebridge-mi-hygrothermograph) for the Qingping Temp & RH Lite (CGDK2) temperature sensor, updated for Homebridge v2 and reworked for more stable Bluetooth scanning.
+This is a fork of [ormisum/homebridge-hygrothermograph-cgdk2](https://github.com/ormisum/homebridge-hygrothermograph-cgdk2), which is itself a fork of [hannseman/homebridge-mi-hygrothermograph](https://github.com/hannseman/homebridge-mi-hygrothermograph), for the Qingping Temp & RH Lite (CGDK2) temperature sensor. This fork updates it for Homebridge v2 and reworks Bluetooth scanning to be significantly more stable.
 
-[Homebridge](https://github.com/homebridge/homebridge) plugin for exposing measured temperature and humidity as [HomeKit](https://www.apple.com/ios/home/) accessories.
+[Homebridge](https://github.com/homebridge/homebridge) plugin for exposing measured temperature and humidity as [HomeKit](https://www.apple.com/home-app/) accessories.
 
 Supported sensors:
 
-* [Qingping Temp & RH Lite (CGDK2)](https://www.aliexpress.com/item/1005002175838299.html)
+* [Qingping Temp & RH Lite (CGDK2)](https://www.qingping.co/temp-rh-monitor-lite/overview)
 
-![alt text](images/hygrothermograph.png "Qingping Lite E Thermometer Hygrometer Temperature & Humidity Sensor")
+![Qingping Temp & RH Monitor Lite (CGDK2)](images/hygrothermograph.png "Qingping Temp & RH Monitor Lite (CGDK2)")
 
 ## Compatibility
 
@@ -51,7 +51,7 @@ You'll need to grant the node binary cap_net_raw privileges:
 sudo setcap cap_net_raw+eip $(eval readlink -f `which node`)
 ```
 
-Please see the [noble fork's documentation](https://github.com/stoprocent/noble#running-without-rootsudo) for more details.
+Please see the [noble fork's documentation](https://github.com/stoprocent/noble#running-without-rootsudo-linux-specific) for more details.
 
 
 ## Homebridge configuration
@@ -91,9 +91,13 @@ When running just one HygrotermographCGDK2 accessory there is no need to specify
 But if you want to run multiple HygrotermographCGDK2 accessories you need to specify the BLE address for each of them.
 If the address is not specified they will interfere with each other.
 
-The easiest way to find the address of the device is to use `[sudo] hcitool lescan`.
-It will start a scan for all advertising BLE peripherals within range. Look for `MJ_HT_V1` and copy the address.
-The address is in the format of `4c:64:a8:d0:ae:65`.
+The easiest way to find a sensor's address is to run Homebridge in debug mode (`homebridge -D`) with the sensor nearby and paired via the Qingping+ app. The plugin only logs peripherals whose advertisement matches its Bluetooth service data, so a line like:
+
+```
+[4c:64:a8:d0:ae:65] Discovered peripheral -> ...
+```
+
+gives you the address to use, in the format `4c:64:a8:d0:ae:65`.
 
 Update your Homebridge `config.json` and specify the `address` key:
 
@@ -112,49 +116,15 @@ Update your Homebridge `config.json` and specify the `address` key:
 ]
 ```
 
-Note that this step is also required when running [Mi Flora](https://xiaomi-mi.com/sockets-and-sensors/xiaomi-huahuacaocao-flower-care-smart-monitor/) devices in the same location as they use the same protocol and their data will be intercepted by this plugin.
 
 #### MacOS
 
-On MacOS `hcitool` can't be used since MacOS does not provide a way to read the MAC-address of a BLE device.
-Instead MacOS assigns a device unique identifier for each BLE device in the format of `5C61F8CE-9F0B-4371-B996-5C9AE0E0D14B`.
-This identifier can be found using MacOS tools like [Bluetooth Explorer](https://developer.apple.com/bluetooth/).
-One can also run Homebridge with debug-mode enabled by using `homebridge -D` and then watch the logs for the string "Discovered peripheral" and fetch the value under `Id`. Use this identifier as `address` in the configuration file.
+MacOS does not expose a BLE device's MAC address. Instead it assigns a device unique identifier in the format `5C61F8CE-9F0B-4371-B996-5C9AE0E0D14B`. The same `homebridge -D` debug-log method above still works on MacOS — just use the `Id` value from the "Discovered peripheral" log line as `address` instead of a MAC address. This identifier can also be found using MacOS tools like [Bluetooth Explorer](https://developer.apple.com/bluetooth/).
 
-
-### Timeout
-If the accessory has not received an updated value from the sensor within the specified timeout it will inform Homekit
-that the accessory is not responsive by returning an error until it receives an updated value.
-
-The default timeout is 15 minutes but can be changed by specifying the number of minutes under the `timeout` parameter in `config.json`:
-
-```json
-"accessories": [
-    {
-      "accessory": "HygrotermographCGDK2",
-      "name": "Temperature & Humidity",
-      "timeout": 30
-    }
-]
-```
-
-If the `timeout` parameter is set to `0` timeouts are disabled and and devices will not be reported as unresponsive to Homekit.
-
-### Naming
-By default the Humidity and Temperature accessories visible in the Home-app will have the names "Humidity" and "Temperature". They can be changed in the Home-app if wanted.
-
-It is also possible to set custom initial values by specifying the `humidityName` and `temperatureName` parameters in `config.json`:
-
-```json
-{
-  "humidityName": "Luftfuktighet",
-  "temperatureName": "Temperatur"
-}
-```
 
 ### Elgato Eve
 
-This plugin has support for adding historical data to the [Elgato Eve App](https://itunes.apple.com/us/app/elgato-eve/id917695792) by using the excellent module [fakegato-history](https://github.com/simont77/fakegato-history).
+This plugin has support for adding historical data to the [Elgato Eve App](https://apps.apple.com/us/app/elgato-eve/id917695792) by using the excellent module [fakegato-history](https://github.com/simont77/fakegato-history).
 
 When using this feature it's required to specify the address of the device as described in [Multiple sensors](#multiple-sensors).
 This is required because [fakegato-history](https://github.com/simont77/fakegato-history) requires a unique serial number for each device.
@@ -231,6 +201,20 @@ The plugin scans for [Bluetooth Low Energy](https://en.wikipedia.org/wiki/Blueto
 By only reading the advertisement packet there is no need to establish a connection to the peripheral.
 Inside each packet discovered we look for Service Data with a UUID of `0xfdcd`. If found we start trying to parse the actual Service Data to find the temperature and humidity.
 
+### Packet format
+
+For example, `50:20:aa:bb:cc:dd:ee:ff:00:00:f5:00:26:02:00:00:50` (illustrative, decodes to 24.5°C / 55.0% / 80% battery) breaks down as:
+
+| byte  | function    | type     |
+|:-----:|-------------|----------|
+| 1-2   | (unused)    |          |
+| 3-8   | MAC-address | 6 bytes, reversed |
+| 9-10  | (unused)    |          |
+| 11-12 | Temperature | int16LE, ÷10 |
+| 13-14 | Humidity    | uint16LE, ÷10 |
+| 15-16 | (unused)    |          |
+| 17    | Battery     | uint8, % |
+
 ### Bluetooth stability
 
 BLE scanning on cheap USB dongles, some Raspberry Pi Bluetooth chips, and certain OS/driver combinations is known to silently die without Node ever finding out about it — the classic symptom is a sensor that stops updating until Homebridge is restarted or someone runs `hcitool lescan` by hand. This fork addresses that directly instead of just documenting it as a known problem:
@@ -241,35 +225,15 @@ BLE scanning on cheap USB dongles, some Raspberry Pi Bluetooth chips, and certai
 * A missing `error` listener on noble's shared event emitter used to mean an adapter-level error would crash the entire Homebridge process; this is now handled and logged instead.
 * The plugin now stops scanning and disconnects MQTT cleanly when Homebridge shuts down, rather than leaving the previous scan session dangling.
 
-If you still see stalls, check your dongle/kernel combination — some hardware is unreliable regardless of the userland library (see the notes below).
+If you still see stalls, check your dongle/kernel combination — some hardware is unreliable regardless of the userland library.
 
-`50:20:aa:01:be:64:ae:d0:a8:65:4c:0d:10:04:cc:00:8a:01` represents the following:
+## Credits
 
-| byte  | function      | type      |
-|:-----:|---------------|-----------|
-| 1-2   | Frame control | bit field |
-| 3-4   | ID            | uint16LE  |
-| 5     | Index         | uint8LE   |
-| 6-11  | MAC-address   | string    |
-| 12-13 | Type of data  | uint16LE  |
-| 14    | Length        | uint8LE   |
-| 15-16 | Temperature   | int16LE   |
-| 17-18 | Humidity      | uint16LE  |
-
-Bytes 1-14 have the same function for all 4 variations but the following bytes contain different sensor data.
-
-## Automation (iOS 13+)
-There is a new very handy automation option in iOS 13 allowing us to convert home automation rule to "Advanced shortcut".
-
-Using that you can make rules like "If temperature drops below 21C and someone is at home and it is not during night then turn on heater". Unfortunately you can't normally bind this rule to any timer trigger. However you can use other homebridge plugin which fakes sensor events e.g. every 5 seconds and you can bind that rule to it! Check https://github.com/nitaybz/homebridge-delay-switch
-
-## Known problems
-Some hardware combinations are problematic and may cause weird troubles like sensor timeout after some time etc. The watchdog described above will automatically recover from these, but if it happens constantly the underlying hardware is worth replacing:
-* Asus BT-400 bluetooth dongle (at least in combination with older RPi 2B)
-* Raspbian Stretch is known to get recurring timeouts with certain RPi-models. Upgrading to Buster or newer is recommended.
+* [ormisum/homebridge-hygrothermograph-cgdk2](https://github.com/ormisum/homebridge-hygrothermograph-cgdk2) — added CGDK2 support, forked by this project.
+* [hannseman/homebridge-mi-hygrothermograph](https://github.com/hannseman/homebridge-mi-hygrothermograph) — original plugin this is ultimately descended from.
 
 ## Legal
 
-*Qingping* is a registered trademarks of Qingping Technology (Beijing) Co., Ltd.
+*Qingping* is a registered trademark of Qingping Technology (Beijing) Co., Ltd.
 
 This project is in no way affiliated with, authorized, maintained, sponsored or endorsed by *Qingping* or any of its affiliates or subsidiaries.

@@ -81,13 +81,13 @@
       },
       "temperatureOffset": {
         "title": "Offset - Temperature",
-        "type": "integer",
+        "type": "number",
         "default": 0,
         "description": "An offset to apply to temperature values for calibration if measured values are incorrect."
       },
       "humidityOffset": {
         "title": "Offset - Humidity",
-        "type": "integer",
+        "type": "number",
         "default": 0,
         "description": "An offset to apply to humidity values for calibration if measured values are incorrect."
       }

@@ -1,4 +1,9 @@
 # Changelog
+## 4.0.2
+
+* Fixed `Characteristic.Model` and `config.schema.json`'s offset fields, both leftover from the original Mi Flora-based project.
+* Cleaned up the README: documented the fork lineage, corrected stale Mi Flora-era instructions and the packet byte-offset table, and trimmed outdated/redundant sections.
+* Added a GitHub Actions workflow that publishes to npm automatically on version bumps
 
 ## 4.0.1
 
