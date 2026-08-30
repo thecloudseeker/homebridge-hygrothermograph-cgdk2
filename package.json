@@ -28,6 +28,9 @@
     "url": "https://github.com/thecloudseeker/homebridge-hygrothermograph-cgdk2/issues"
   },
   "homepage": "https://github.com/thecloudseeker/homebridge-hygrothermograph-cgdk2#readme",
+  "publishConfig": {
+    "access": "public"
+  },
   "files": [
     "index.js",
     "config-sample.json",
