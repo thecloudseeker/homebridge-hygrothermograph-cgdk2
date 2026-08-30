@@ -1,5 +1,5 @@
 {
-  "name": "homebridge-hygrothermograph-cgdk2",
+  "name": "@thecloudseeker/homebridge-hygrothermograph-cgdk2",
   "version": "4.0.0",
   "description": "Homebridge plugin for Qingping Technology CGDK2 Qingping Temp & RH Monitor Lite",
   "main": "index.js",
@@ -22,12 +22,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/ormisum/homebridge-hygrothermograph-cgdk2"
+    "url": "https://github.com/thecloudseeker/homebridge-hygrothermograph-cgdk2"
   },
   "bugs": {
-    "url": "https://github.com/ormisum/homebridge-hygrothermograph-cgdk2/issues"
+    "url": "https://github.com/thecloudseeker/homebridge-hygrothermograph-cgdk2/issues"
   },
-  "homepage": "https://github.com/ormisum/homebridge-hygrothermograph-cgdk2#readme",
+  "homepage": "https://github.com/thecloudseeker/homebridge-hygrothermograph-cgdk2#readme",
   "files": [
     "index.js",
     "config-sample.json",

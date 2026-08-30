@@ -36,7 +36,7 @@ Download the iOS or Android Qingping+ App and setup your CGDK2. This causes the 
 ### Install homebridge and this plugin
 ```
 [sudo] npm install -g --unsafe-perm homebridge
-[sudo] npm install -g --unsafe-perm homebridge-hygrothermograph-cgdk2
+[sudo] npm install -g --unsafe-perm @thecloudseeker/homebridge-hygrothermograph-cgdk2
 ```
 
 **Note:** depending on your platform you might need to run `npm install -g` with root privileges.

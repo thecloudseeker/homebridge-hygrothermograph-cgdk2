@@ -3,7 +3,7 @@ module.exports = homebridge => {
     homebridge
   );
   homebridge.registerAccessory(
-    "homebridge-hygrothermograph-cgdk2",
+    "@thecloudseeker/homebridge-hygrothermograph-cgdk2",
     "HygrotermographCGDK2",
     HygrothermographCgdk2Accessory
   );
