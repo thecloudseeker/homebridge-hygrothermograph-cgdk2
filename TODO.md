@@ -1,19 +1,27 @@
 # Future improvements
 
-Bigger-lift items, not urgent — the plugin works fine without them.
+## `bindKey` support (encrypted sensor decryption)
 
-## Add a test suite
+Right now the CGDK2 has to be paired via the Qingping+ app to force it into
+unencrypted broadcast mode before this plugin can read it. Supporting a
+`bindKey` option to decrypt Xiaomi's encrypted MiBeacon protocol would let
+the device stay encrypted instead. Scoped to the CGDK2 only; not a general
+multi-device feature.
 
-No automated tests exist. `lib/parser.js` (byte-decoding) and `lib/scanner.js`
-(address matching, backoff calculation) are pure logic and easy to unit test.
-A basic suite would have caught the dead/broken `parseMacAddress()` code that
-got removed in 4.0.2/4.0.3.
+## `fakeGatoOptions` passthrough
 
-## Migrate from the legacy Accessory API to a dynamic Platform
+Expose a `fakeGatoOptions` config key passed straight through to the
+`fakegato-history` module constructor. We hardcode
+`{ filename, path, storage: "fs" }` in `getFakeGatoHistoryService()` with no
+way for a user to override or extend it.
 
-Currently registers via `registerAccessory` (`pluginType: "accessory"` in
-`config.schema.json`). Homebridge has been steering new plugins toward the
-dynamic Platform API instead. Migrating would also enable auto-discovery of
-multiple CGDK2 sensors without requiring a manual `address` per device in
-config.json. This is a real rewrite, not a small tweak — only worth doing if
-multi-sensor auto-discovery becomes something you actually want.
+## Matter compatibility
+
+Expose sensors as Matter devices, not just HomeKit. This plugin currently
+only speaks HAP. A HAP accessory can already reach Matter controllers
+indirectly via a bridge (e.g. Homebridge Matter Hub) with no plugin-side
+changes, since bridging happens at the HAP layer — worth confirming against
+a real Matter controller (Apple Home, Google Home, etc.). Native Matter
+support (the plugin speaking Matter directly, without going through HAP)
+would be a much bigger undertaking and depends on what, if anything,
+Homebridge itself ships for this.

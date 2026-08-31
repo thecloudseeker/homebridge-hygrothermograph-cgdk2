@@ -54,10 +54,12 @@ sudo setcap cap_net_raw+eip $(eval readlink -f `which node`)
 Please see the [noble fork's documentation](https://github.com/stoprocent/noble#running-without-rootsudo-linux-specific) for more details.
 
 
-## Homebridge configuration
-Update your Homebridge `config.json` file. See [config-sample.json](config-sample.json) for a complete example.
+## Migrating from 4.x
+
+Version 5.0.0 rewrote this plugin from a Homebridge Accessory to a Platform, so that sensors are discovered automatically instead of needing a manually-configured `address` per device. **This is a breaking config change** — update your `config.json`:
 
 ```json
+// Before (4.x)
 "accessories": [
     {
       "accessory": "HygrotermographCGDK2",
@@ -66,12 +68,37 @@ Update your Homebridge `config.json` file. See [config-sample.json](config-sampl
 ]
 ```
 
+```json
+// After (5.x)
+"platforms": [
+    {
+      "platform": "HygrotermographCGDK2"
+    }
+]
+```
+
+If you had multiple accessory blocks with different `address` values, those become entries in an optional `sensors` array instead — see [Customizing or ignoring a sensor](#customizing-or-ignoring-a-sensor) below. Everything else (`timeout`, `mqtt`, `fakeGatoEnabled`, etc.) works the same, just nested under the platform block (or per-sensor, if you want different values for different sensors).
+
+
+## Homebridge configuration
+
+Sensors are discovered automatically. Once a CGDK2 is paired via the Qingping+ app and broadcasting nearby, this plugin picks it up over Bluetooth and exposes it as a HomeKit accessory — no `address` or per-sensor config required. Just add the platform to your Homebridge `config.json`:
+
+```json
+"platforms": [
+    {
+      "platform": "HygrotermographCGDK2"
+    }
+]
+```
+
+See [config-sample.json](config-sample.json) for a complete example, including a per-sensor override.
+
+The following apply to every discovered sensor. All except `forceDiscovering`/`forceDiscoveringDelay` (platform-wide only — there's a single shared Bluetooth scan for every sensor) can be overridden for one specific sensor — see [Customizing or ignoring a sensor](#customizing-or-ignoring-a-sensor) below.
+
 | Key                     | Default         | Description                                                                                                                                                                                                 |
 |-------------------------|-----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `accessory`             |                 | Mandatory. The name provided to Homebridge. Must be "HygrotermographCGDK2".                                                                                                                                      |
-| `name`                  |                 | Mandatory. The name of this accessory. This will appear in your Home-app.                                                                                                                                   |
-| `address`               |                 | Optional. The address of the device. Used when running multiple devices.                                                                                                                                    |
-| `timeout`               | `15`            | Time in minutes after last contact when the accessory should be regarded as unreachable. If set to `0`, timeout will be disabled.                                                                           |
+| `timeout`               | `15`            | Time in minutes after last contact when a sensor should be regarded as unreachable. If set to `0`, timeout will be disabled.                                                                                |
 | `humidityName`          | `"Humidity"`    | Name of the humidity sensor as it will appear in your Home-app.                                                                                                                                             |
 | `temperatureName`       | `"Temperature"` | Name of the temperature sensor as it will appear in your Home-app.                                                                                                                                          |
 | `fakeGatoEnabled`       | `false`         | If historical data should be reported to the Elgato Eve App.                                                                                                                                                |
@@ -85,49 +112,54 @@ Update your Homebridge `config.json` file. See [config-sample.json](config-sampl
 | `temperatureOffset`     | `0`             | An offset to apply to temperature values for calibration if measured values are incorrect.                                                                                                                  |
 | `humidityOffset`        | `0`             | An offset to apply to humidity values for calibration if measured values are incorrect.                                                                                                                     |
 
+### Customizing or ignoring a sensor
 
-### Multiple sensors
-When running just one HygrotermographCGDK2 accessory there is no need to specify the address of the BLE device.
-But if you want to run multiple HygrotermographCGDK2 accessories you need to specify the BLE address for each of them.
-If the address is not specified they will interfere with each other.
+By default every discovered sensor gets an auto-generated name like "CGDK2 AE:65" (from the last two bytes of its BLE address) — rename it in the Home app like any accessory, or give it a name up front along with any other override, by adding it to the optional `sensors` array, matched by address:
 
-The easiest way to find a sensor's address is to run Homebridge in debug mode (`homebridge -D`) with the sensor nearby and paired via the Qingping+ app. The plugin only logs peripherals whose advertisement matches its Bluetooth service data, so a line like:
+```json
+"platforms": [
+    {
+      "platform": "HygrotermographCGDK2",
+      "sensors": [
+        {
+          "address": "4c:64:a8:d0:ae:65",
+          "name": "Living Room",
+          "timeout": 30
+        }
+      ]
+    }
+]
+```
+
+Any of the defaults above can be overridden per-sensor this way. A sensor doesn't need to be listed here at all to work — it's only for customizing one.
+
+To stop an unwanted sensor from showing up at all (e.g. a neighbor's, picked up over BLE in an apartment building), add its address to `ignoredAddresses` instead:
+
+```json
+"platforms": [
+    {
+      "platform": "HygrotermographCGDK2",
+      "ignoredAddresses": ["2c:34:b3:d4:a1:61"]
+    }
+]
+```
+
+The easiest way to find a sensor's address for either of the above is to run Homebridge in debug mode (`homebridge -D`) with the sensor nearby and paired via the Qingping+ app. The plugin only logs peripherals whose advertisement matches its Bluetooth service data, so a line like:
 
 ```
 [4c:64:a8:d0:ae:65] Discovered peripheral -> ...
 ```
 
-gives you the address to use, in the format `4c:64:a8:d0:ae:65`.
-
-Update your Homebridge `config.json` and specify the `address` key:
-
-```json
-"accessories": [
-    {
-      "accessory": "HygrotermographCGDK2",
-      "name": "Room 1",
-      "address": "4c:64:a8:d0:ae:65"
-    },
-    {
-      "accessory": "HygrotermographCGDK2",
-      "name": "Room 2",
-      "address": "2c:34:b3:d4:a1:61"
-    }
-]
-```
-
+gives you the address, in the format `4c:64:a8:d0:ae:65`.
 
 #### MacOS
 
-MacOS does not expose a BLE device's MAC address. Instead it assigns a device unique identifier in the format `5C61F8CE-9F0B-4371-B996-5C9AE0E0D14B`. The same `homebridge -D` debug-log method above still works on MacOS — just use the `Id` value from the "Discovered peripheral" log line as `address` instead of a MAC address. This identifier can also be found using MacOS tools like [Bluetooth Explorer](https://developer.apple.com/bluetooth/).
+MacOS does not expose a BLE device's MAC address. Instead it assigns a device unique identifier in the format `5C61F8CE-9F0B-4371-B996-5C9AE0E0D14B`. The same `homebridge -D` debug-log method above still works on MacOS — just use the `Id` value from the "Discovered peripheral" log line as the address instead of a MAC address. This identifier can also be found using MacOS tools like [Bluetooth Explorer](https://developer.apple.com/bluetooth/).
 
 
 ### Elgato Eve
 
-This plugin has support for adding historical data to the [Elgato Eve App](https://apps.apple.com/us/app/elgato-eve/id917695792) by using the excellent module [fakegato-history](https://github.com/simont77/fakegato-history).
-
-When using this feature it's required to specify the address of the device as described in [Multiple sensors](#multiple-sensors).
-This is required because [fakegato-history](https://github.com/simont77/fakegato-history) requires a unique serial number for each device.
+This plugin has support for adding historical data to the [Elgato Eve App](https://apps.apple.com/us/app/elgato-eve/id917695792) by using the excellent module [fakegato-history](https://github.com/simont77/fakegato-history), which requires a unique serial number per device — every discovered sensor's BLE address is used automatically, so there's nothing to configure for this to work.
 
 When restarting Homebridge the Eve app will show the Accessories as having 0% battery until the sensor actually reports its battery status. This can sometimes take a couple of minutes. Just be patient and the actual battery status will show up.
 

@@ -1,4 +1,12 @@
 # Changelog
+## 5.0.0
+
+**Breaking:** rewrote the plugin from a Homebridge Accessory to a dynamic Platform — sensors are now discovered automatically instead of needing a manually-configured `address` per accessory. `config.json` must be updated — see [Migrating from 4.x](README.md#migrating-from-4x).
+
+* New `sensors` array to optionally name/override a specific sensor, and `ignoredAddresses` to exclude one.
+* Added a test suite, run in CI on Node 22 and 24 alongside lint.
+* Hardened config parsing against malformed hand-edited `config.json` values.
+
 ## 4.0.4
 
 * Bumped ESLint from the EOL 8.57 to 10.9

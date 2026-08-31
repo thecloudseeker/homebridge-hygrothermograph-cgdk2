@@ -1,9 +1,9 @@
 module.exports = (homebridge) => {
-  const { HygrothermographCgdk2Accessory } =
-    require("./lib/accessory")(homebridge);
-  homebridge.registerAccessory(
-    "@thecloudseeker/homebridge-hygrothermograph-cgdk2",
-    "HygrotermographCGDK2",
-    HygrothermographCgdk2Accessory,
+  const { HygrothermographCgdk2Platform, PLUGIN_IDENTIFIER, PLATFORM_NAME } =
+    require("./lib/platform")(homebridge);
+  homebridge.registerPlatform(
+    PLUGIN_IDENTIFIER,
+    PLATFORM_NAME,
+    HygrothermographCgdk2Platform,
   );
 };

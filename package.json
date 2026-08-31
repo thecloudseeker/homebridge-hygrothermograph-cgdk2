@@ -1,10 +1,11 @@
 {
   "name": "@thecloudseeker/homebridge-hygrothermograph-cgdk2",
-  "version": "4.0.4",
+  "version": "5.0.0",
   "description": "Homebridge plugin for Qingping Technology CGDK2 Qingping Temp & RH Monitor Lite",
   "main": "index.js",
   "scripts": {
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test": "node --test test/"
   },
   "author": {
     "name": "thecloudseeker",
