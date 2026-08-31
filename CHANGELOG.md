@@ -1,4 +1,8 @@
 # Changelog
+## 5.0.1
+
+* Fixed the CI test script (`node --test test/`) failing on Linux runners; switched to an explicit glob (`node --test "test/**/*.test.js"`).
+
 ## 5.0.0
 
 **Breaking:** rewrote the plugin from a Homebridge Accessory to a dynamic Platform — sensors are now discovered automatically instead of needing a manually-configured `address` per accessory. `config.json` must be updated — see [Migrating from 4.x](README.md#migrating-from-4x).
