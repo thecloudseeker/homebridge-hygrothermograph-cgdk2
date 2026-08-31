@@ -31,7 +31,7 @@ For more detailed information and descriptions for other platforms please see th
 
 Download the iOS or Android Qingping+ App and setup your CGDK2. This causes the temperature sensor to send unencrypted data.
 
-**Note:** This step is necessary.
+**Note:** This step is necessary, unless you'd rather decrypt the sensor's normal encrypted broadcasts instead — see [Encrypted sensors (bindKey)](#encrypted-sensors-bindkey) below.
 
 ### Install homebridge and this plugin
 ```
@@ -156,6 +156,28 @@ gives you the address, in the format `4c:64:a8:d0:ae:65`.
 
 MacOS does not expose a BLE device's MAC address. Instead it assigns a device unique identifier in the format `5C61F8CE-9F0B-4371-B996-5C9AE0E0D14B`. The same `homebridge -D` debug-log method above still works on MacOS — just use the `Id` value from the "Discovered peripheral" log line as the address instead of a MAC address. This identifier can also be found using MacOS tools like [Bluetooth Explorer](https://developer.apple.com/bluetooth/).
 
+### Encrypted sensors (bindKey)
+
+As an alternative to [pairing via the Qingping+ app](#pair-with-qingping-app), the plugin can decrypt the CGDK2's normal encrypted Bluetooth broadcasts directly, so the sensor never needs to be switched into unencrypted mode at all. This needs a `bindKey`: a 16-byte encryption key, unique per sensor, assigned to it when it's first bound to a Xiaomi/MiHome account.
+
+To obtain it without changing how the sensor is paired, use a Xiaomi-cloud key extractor such as [PiotrMachowski/Xiaomi-cloud-tokens-extractor](https://github.com/PiotrMachowski/Xiaomi-cloud-tokens-extractor), which reads it from your Xiaomi cloud account rather than modifying the device itself. Then add it to that sensor's entry in `sensors`:
+
+```json
+"platforms": [
+    {
+      "platform": "HygrotermographCGDK2",
+      "sensors": [
+        {
+          "address": "4c:64:a8:d0:ae:65",
+          "bindKey": "0123456789abcdef0123456789abcdef"
+        }
+      ]
+    }
+]
+```
+
+A sensor with no `bindKey` configured is simply ignored if it's broadcasting encrypted — nothing crashes, but you'll see a one-time warning in the log (`homebridge -D`) naming its address. `bindKey` only matters for a sensor sending encrypted data in the first place; a sensor already paired via the Qingping+ app doesn't need one.
+
 
 ### Elgato Eve
 
@@ -231,7 +253,7 @@ The `Client#publish` options `qos` and `retain` can also be configured the same 
 ## Technical details
 The plugin scans for [Bluetooth Low Energy](https://en.wikipedia.org/wiki/Bluetooth_Low_Energy) peripherals and check the broadcast advertisement packets.
 By only reading the advertisement packet there is no need to establish a connection to the peripheral.
-Inside each packet discovered we look for Service Data with a UUID of `0xfdcd`. If found we start trying to parse the actual Service Data to find the temperature and humidity.
+Inside each packet discovered we look for Service Data with a UUID of `0xfdcd` (the Qingping-native format sent once paired via the Qingping+ app) or `0xfe95` (Xiaomi's encrypted MiBeacon format, decoded if a [bindKey](#encrypted-sensors-bindkey) is configured for that sensor). If found we start trying to parse the actual Service Data to find the temperature and humidity.
 
 ### Packet format
 

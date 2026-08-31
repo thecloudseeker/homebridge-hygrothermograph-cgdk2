@@ -44,6 +44,13 @@
               "type": "string",
               "format": "string"
             },
+            "bindKey": {
+              "title": "Bind Key (encrypted sensors)",
+              "type": "string",
+              "format": "string",
+              "placeholder": "32-character hex string",
+              "description": "Only needed if this sensor broadcasts encrypted (the CGDK2 default, unless paired via the Qingping+ app to force unencrypted mode). See README > Encrypted sensors (bindKey)."
+            },
             "fakeGatoEnabled": {
               "title": "Enable FakeGato",
               "type": "boolean"

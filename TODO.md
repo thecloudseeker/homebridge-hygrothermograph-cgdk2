@@ -1,13 +1,5 @@
 # Future improvements
 
-## `bindKey` support (encrypted sensor decryption)
-
-Right now the CGDK2 has to be paired via the Qingping+ app to force it into
-unencrypted broadcast mode before this plugin can read it. Supporting a
-`bindKey` option to decrypt Xiaomi's encrypted MiBeacon protocol would let
-the device stay encrypted instead. Scoped to the CGDK2 only; not a general
-multi-device feature.
-
 ## `fakeGatoOptions` passthrough
 
 Expose a `fakeGatoOptions` config key passed straight through to the

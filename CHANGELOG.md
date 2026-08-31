@@ -1,4 +1,8 @@
 # Changelog
+## 5.1.0
+
+* Added `bindKey` support: a per-sensor key that decrypts the CGDK2's normal encrypted Bluetooth broadcasts (Xiaomi's MiBeacon protocol) directly, so it no longer has to be paired via the Qingping+ app to force unencrypted mode. See [Encrypted sensors (bindKey)](README.md#encrypted-sensors-bindkey).
+
 ## 5.0.1
 
 * Fixed the CI test script (`node --test test/`) failing on Linux runners; switched to an explicit glob (`node --test "test/**/*.test.js"`).

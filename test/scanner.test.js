@@ -1,7 +1,14 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
+const crypto = require("crypto");
 const { stubModule } = require("./helpers/stubModule");
 const { EventEmitter, createSilentLog } = require("./helpers/fakeHap");
+const {
+  buildFrame,
+  temperatureHumidityObject,
+  batteryObject,
+} = require("./helpers/miBeaconFrame");
+const { cleanAddress } = require("../lib/address");
 
 const scannerPath = require.resolve("../lib/scanner");
 
@@ -279,6 +286,167 @@ test("the watchdog force-restarts a scan that has gone silent too long", (t) => 
   t.mock.timers.tick(2000); // now past it
   assert.equal(noble.stopScanningCalls, 1);
   assert.notEqual(scanner.restartTimer, null);
+});
+
+test("handleDiscover decrypts an encrypted MiBeacon advertisement when a bindKey is configured", () => {
+  const { Scanner, noble } = loadScanner();
+  const address = "4c:64:a8:d0:ae:65";
+  const bindKey = crypto.randomBytes(16);
+  const bindKeys = new Map([[cleanAddress(address), bindKey]]);
+  const scanner = new Scanner(null, { log: createSilentLog(), bindKeys });
+  const seen = { temperature: [], humidity: [] };
+  scanner.on("temperatureChange", (v) => seen.temperature.push(v));
+  scanner.on("humidityChange", (v) => seen.humidity.push(v));
+
+  const frame = buildFrame({
+    mac: address,
+    bindKey,
+    plaintext: temperatureHumidityObject(24.5, 55),
+  });
+
+  noble.emit(
+    "discover",
+    peripheral({
+      address,
+      serviceData: [{ uuid: "fe95", data: frame }],
+    }),
+  );
+
+  assert.deepEqual(seen.temperature, [24.5]);
+  assert.deepEqual(seen.humidity, [55]);
+});
+
+test("handleDiscover ignores an encrypted MiBeacon advertisement when no bindKey is configured, warning once", () => {
+  const { Scanner, noble } = loadScanner();
+  const address = "4c:64:a8:d0:ae:65";
+  const warnings = [];
+  const log = { ...createSilentLog(), warn: (msg) => warnings.push(msg) };
+  const scanner = new Scanner(null, { log });
+  const events = [];
+  scanner.on("temperatureChange", (v) => events.push(v));
+
+  const frame = buildFrame({
+    mac: address,
+    bindKey: crypto.randomBytes(16),
+    plaintext: temperatureHumidityObject(24.5, 55),
+  });
+
+  noble.emit(
+    "discover",
+    peripheral({ address, serviceData: [{ uuid: "fe95", data: frame }] }),
+  );
+  noble.emit(
+    "discover",
+    peripheral({ address, serviceData: [{ uuid: "fe95", data: frame }] }),
+  );
+
+  assert.deepEqual(events, []);
+  assert.equal(warnings.length, 1);
+});
+
+test("handleDiscover prefers the unencrypted native format over an encrypted advertisement", () => {
+  const { Scanner, noble } = loadScanner();
+  const address = "4c:64:a8:d0:ae:65";
+  const bindKey = crypto.randomBytes(16);
+  const bindKeys = new Map([[cleanAddress(address), bindKey]]);
+  const scanner = new Scanner(null, { log: createSilentLog(), bindKeys });
+  const events = [];
+  scanner.on("temperatureChange", (v) => events.push(v));
+
+  const encryptedFrame = buildFrame({
+    mac: address,
+    bindKey,
+    plaintext: batteryObject(1), // deliberately different from GOOD_HEX's 24.5C
+  });
+
+  noble.emit(
+    "discover",
+    peripheral({
+      address,
+      serviceData: [
+        ...validServiceData(GOOD_HEX),
+        { uuid: "fe95", data: encryptedFrame },
+      ],
+    }),
+  );
+
+  assert.deepEqual(events, [24.5]);
+});
+
+test("handleDiscover matches the encrypted MiBeacon service data UUID regardless of case", () => {
+  const { Scanner, noble } = loadScanner();
+  const address = "4c:64:a8:d0:ae:65";
+  const bindKey = crypto.randomBytes(16);
+  const bindKeys = new Map([[cleanAddress(address), bindKey]]);
+  const scanner = new Scanner(null, { log: createSilentLog(), bindKeys });
+  const events = [];
+  scanner.on("temperatureChange", (v) => events.push(v));
+
+  const frame = buildFrame({
+    mac: address,
+    bindKey,
+    plaintext: temperatureHumidityObject(24.5, 55),
+  });
+
+  noble.emit(
+    "discover",
+    peripheral({ address, serviceData: [{ uuid: "FE95", data: frame }] }),
+  );
+
+  assert.deepEqual(events, [24.5]);
+});
+
+test("the bindKeys lookup is case- and separator-insensitive, matching how sensors[].address is normalized", () => {
+  const { Scanner, noble } = loadScanner();
+  const bindKey = crypto.randomBytes(16);
+  // Configured (as a user would type it in config.json) with uppercase and colons...
+  const bindKeys = new Map([[cleanAddress("4C:64:A8:D0:AE:65"), bindKey]]);
+  const scanner = new Scanner(null, { log: createSilentLog(), bindKeys });
+  const events = [];
+  scanner.on("temperatureChange", (v) => events.push(v));
+
+  // ...but noble reports it lowercase, no separators.
+  const discoveredAddress = "4c64a8d0ae65";
+  const frame = buildFrame({
+    mac: "4c:64:a8:d0:ae:65",
+    bindKey,
+    plaintext: temperatureHumidityObject(24.5, 55),
+  });
+
+  noble.emit(
+    "discover",
+    peripheral({
+      address: discoveredAddress,
+      serviceData: [{ uuid: "fe95", data: frame }],
+    }),
+  );
+
+  assert.deepEqual(events, [24.5]);
+});
+
+test("a wrong bindKey emits 'error' instead of throwing", () => {
+  const { Scanner, noble } = loadScanner();
+  const address = "4c:64:a8:d0:ae:65";
+  const bindKeys = new Map([[cleanAddress(address), crypto.randomBytes(16)]]);
+  const scanner = new Scanner(null, { log: createSilentLog(), bindKeys });
+  const errors = [];
+  scanner.on("error", (e) => errors.push(e));
+
+  const frame = buildFrame({
+    mac: address,
+    bindKey: crypto.randomBytes(16), // different key than what's configured
+    plaintext: temperatureHumidityObject(24.5, 55),
+  });
+
+  assert.doesNotThrow(() => {
+    noble.emit(
+      "discover",
+      peripheral({ address, serviceData: [{ uuid: "fe95", data: frame }] }),
+    );
+  });
+
+  assert.equal(errors.length, 1);
+  assert.match(errors[0].message, /Failed to decrypt MiBeacon payload/);
 });
 
 test("the watchdog does not fire while advertisements keep arriving", (t) => {

@@ -314,6 +314,82 @@ test("a per-address override in config.sensors merges with platform-level defaul
   assert.equal(usingDefault.config.name, undefined);
 });
 
+test("a sensor's bindKey is parsed into the scanner's bindKeys map", () => {
+  const { HygrothermographCgdk2Platform, createdScanners } = loadPlatform();
+  const api = new FakeAPI();
+  new HygrothermographCgdk2Platform(
+    createSilentLog(),
+    {
+      sensors: [
+        {
+          address: "4c:64:a8:d0:ae:65",
+          bindKey: "0123456789abcdef0123456789abcdef",
+        },
+      ],
+    },
+    api,
+  );
+  api.emit("didFinishLaunching");
+
+  const { bindKeys } = latestScanner(createdScanners).options;
+  const key = bindKeys.get("4c64a8d0ae65");
+  assert.ok(Buffer.isBuffer(key));
+  assert.equal(key.toString("hex"), "0123456789abcdef0123456789abcdef");
+});
+
+test("an invalid bindKey is skipped with a warning instead of crashing discovery", () => {
+  const { HygrothermographCgdk2Platform, createdScanners } = loadPlatform();
+  const api = new FakeAPI();
+  const warnings = [];
+  const log = { ...createSilentLog(), warn: (msg) => warnings.push(msg) };
+  new HygrothermographCgdk2Platform(
+    log,
+    { sensors: [{ address: "4c:64:a8:d0:ae:65", bindKey: "not-hex" }] },
+    api,
+  );
+
+  assert.doesNotThrow(() => api.emit("didFinishLaunching"));
+
+  const { bindKeys } = latestScanner(createdScanners).options;
+  assert.equal(bindKeys.size, 0);
+  assert.equal(warnings.length, 1);
+});
+
+test("multiple sensors each get their own distinct bindKey correctly mapped", () => {
+  const { HygrothermographCgdk2Platform, createdScanners } = loadPlatform();
+  const api = new FakeAPI();
+  new HygrothermographCgdk2Platform(
+    createSilentLog(),
+    {
+      sensors: [
+        { address: "4c:64:a8:d0:ae:65", bindKey: "1".repeat(32) },
+        { address: "2c:34:b3:d4:a1:61", bindKey: "2".repeat(32) },
+      ],
+    },
+    api,
+  );
+  api.emit("didFinishLaunching");
+
+  const { bindKeys } = latestScanner(createdScanners).options;
+  assert.equal(bindKeys.size, 2);
+  assert.equal(bindKeys.get("4c64a8d0ae65").toString("hex"), "1".repeat(32));
+  assert.equal(bindKeys.get("2c34b3d4a161").toString("hex"), "2".repeat(32));
+});
+
+test("a sensor with no bindKey configured contributes nothing to the bindKeys map", () => {
+  const { HygrothermographCgdk2Platform, createdScanners } = loadPlatform();
+  const api = new FakeAPI();
+  new HygrothermographCgdk2Platform(
+    createSilentLog(),
+    { sensors: [{ address: "4c:64:a8:d0:ae:65", name: "Living Room" }] },
+    api,
+  );
+  api.emit("didFinishLaunching");
+
+  const { bindKeys } = latestScanner(createdScanners).options;
+  assert.equal(bindKeys.size, 0);
+});
+
 test("the platform's own top-level `name` does not leak into a discovered sensor's default name", () => {
   const { HygrothermographCgdk2Platform, createdScanners } = loadPlatform();
   const api = new FakeAPI();
