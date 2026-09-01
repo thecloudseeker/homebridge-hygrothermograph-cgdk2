@@ -14,7 +14,13 @@ class FakeHandler {
     this.platformAccessory = platformAccessory;
     this.config = config;
     this.log = log;
-    this.calls = { temperature: [], humidity: [], battery: [], flush: 0 };
+    this.calls = {
+      temperature: [],
+      humidity: [],
+      battery: [],
+      rssi: [],
+      flush: 0,
+    };
   }
   setTemperature(v) {
     this.calls.temperature.push(v);
@@ -24,6 +30,9 @@ class FakeHandler {
   }
   setBatteryLevel(v) {
     this.calls.battery.push(v);
+  }
+  setRSSI(v) {
+    this.calls.rssi.push(v);
   }
   flushBatchedUpdate() {
     this.calls.flush += 1;
@@ -142,6 +151,24 @@ test("two distinct sensors get two distinct accessories, each receiving only its
   assert.equal(h1.calls.humidity[0], 55);
   assert.equal(h2.calls.temperature[0], 19.0);
   assert.equal(h2.calls.humidity.length, 0);
+});
+
+test("the scanner's rssiChange event routes to the matching handler's setRSSI", () => {
+  const { HygrothermographCgdk2Platform, createdScanners } = loadPlatform();
+  const api = new FakeAPI();
+  const platform = new HygrothermographCgdk2Platform(
+    createSilentLog(),
+    {},
+    api,
+  );
+  api.emit("didFinishLaunching");
+  const scanner = latestScanner(createdScanners);
+
+  scanner.emit("temperatureChange", 21.5, { address: "4c:64:a8:d0:ae:65" });
+  scanner.emit("rssiChange", -55, { address: "4c:64:a8:d0:ae:65" });
+
+  const handler = platform.handlers.get("4c64a8d0ae65");
+  assert.deepEqual(handler.calls.rssi, [-55]);
 });
 
 test("re-discovering the same sensor (even with different address casing) reuses its handler", () => {

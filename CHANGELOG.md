@@ -1,4 +1,11 @@
 # Changelog
+## 5.3.0
+
+* Added a `StatusFault` characteristic to the temperature/humidity services, set once a sensor exceeds its configured `timeout`, so the Home/Eve app can show "Not Responding" instead of silently freezing the last good reading.
+* Added `Signal Strength (RSSI)` and `Last Seen` diagnostics to the temperature service, plus an opt-in `logSignalStrength` option to log RSSI at info level. See [Diagnostics](README.md#diagnostics).
+* Fixed a spurious `Error: Could not start scanning, state is unknown` logged on nearly every restart (an expected Bluetooth-adapter startup race, not a fault) and added clearer info-level startup/shutdown log lines.
+* Fixed several fields in the Homebridge UI config form (`Ignored Sensor Addresses`, `Per-Sensor Overrides`, `MQTT`) that rendered with no inputs at all, and masked the MQTT password field instead of showing it in plain text.
+
 ## 5.2.0
 
 * Added `fakeGatoOptions`: extra options passed straight through to the `fakegato-history` constructor, merged over (and able to override) this plugin's computed `filename`/`path`/`storage`. Previously these were hardcoded with no way to customize or extend them.

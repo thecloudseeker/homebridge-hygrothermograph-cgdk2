@@ -62,7 +62,7 @@
             "fakeGatoOptions": {
               "title": "FakeGato Options",
               "type": "object",
-              "description": "Advanced. Extra options passed straight through to the fakegato-history constructor, merged over (and able to override) this plugin's computed filename/path/storage. See the fakegato-history documentation for available options."
+              "description": "Advanced. Extra options passed straight through to the fakegato-history constructor, merged over (and able to override) this plugin's computed filename/path/storage. See the fakegato-history documentation for available options. Not editable from this form (it's an open-ended object) — switch to the JSON config editor for this plugin to set it."
             },
             "timeout": {
               "title": "Timeout (minutes)",
@@ -70,6 +70,10 @@
             },
             "disableBatteryLevel": {
               "title": "Disable Battery Level",
+              "type": "boolean"
+            },
+            "logSignalStrength": {
+              "title": "Log Signal Strength (RSSI)",
               "type": "boolean"
             },
             "lowBattery": {
@@ -97,7 +101,11 @@
                 "humidityTopic": { "title": "Humidity Topic", "type": "string" },
                 "batteryTopic": { "title": "Battery Topic", "type": "string" },
                 "username": { "title": "Username", "type": "string" },
-                "password": { "title": "Password", "type": "string" }
+                "password": {
+                  "title": "Password",
+                  "type": "string",
+                  "format": "password"
+                }
               }
             }
           }
@@ -139,6 +147,12 @@
         "default": 10,
         "description": "Default: at what battery percentage Homekit should start warning about low battery."
       },
+      "logSignalStrength": {
+        "title": "Log Signal Strength (RSSI)",
+        "type": "boolean",
+        "default": false,
+        "description": "Default: log each sensor's Bluetooth signal strength (RSSI) at info level, without needing full debug logging."
+      },
       "temperatureOffset": {
         "title": "Offset - Temperature",
         "type": "number",
@@ -177,7 +191,11 @@
           "humidityTopic": { "title": "Humidity Topic", "type": "string" },
           "batteryTopic": { "title": "Battery Topic", "type": "string" },
           "username": { "title": "Username", "type": "string" },
-          "password": { "title": "Password", "type": "string" }
+          "password": {
+            "title": "Password",
+            "type": "string",
+            "format": "password"
+          }
         }
       }
     }
@@ -187,7 +205,39 @@
       "type": "fieldset",
       "title": "Ignored / Per-Sensor Overrides",
       "expandable": true,
-      "items": ["ignoredAddresses", "sensors"]
+      "items": [
+        {
+          "key": "ignoredAddresses",
+          "type": "array",
+          "items": ["ignoredAddresses[]"]
+        },
+        {
+          "key": "sensors",
+          "type": "array",
+          "items": [
+            "sensors[].address",
+            "sensors[].name",
+            "sensors[].temperatureName",
+            "sensors[].humidityName",
+            "sensors[].bindKey",
+            "sensors[].timeout",
+            "sensors[].disableBatteryLevel",
+            "sensors[].logSignalStrength",
+            "sensors[].lowBattery",
+            "sensors[].temperatureOffset",
+            "sensors[].humidityOffset",
+            "sensors[].updateInterval",
+            "sensors[].fakeGatoEnabled",
+            "sensors[].fakeGatoStoragePath",
+            "sensors[].mqtt.url",
+            "sensors[].mqtt.temperatureTopic",
+            "sensors[].mqtt.humidityTopic",
+            "sensors[].mqtt.batteryTopic",
+            "sensors[].mqtt.username",
+            "sensors[].mqtt.password"
+          ]
+        }
+      ]
     },
     {
       "type": "fieldset",
@@ -201,6 +251,7 @@
         "updateInterval",
         "disableBatteryLevel",
         "lowBattery",
+        "logSignalStrength",
         "temperatureOffset",
         "humidityOffset"
       ]
@@ -209,13 +260,20 @@
       "type": "fieldset",
       "title": "FakeGato",
       "expandable": true,
-      "items": ["fakeGatoEnabled", "fakeGatoStoragePath", "fakeGatoOptions"]
+      "items": ["fakeGatoEnabled", "fakeGatoStoragePath"]
     },
     {
       "type": "fieldset",
       "title": "MQTT",
       "expandable": true,
-      "items": ["mqtt"]
+      "items": [
+        "mqtt.url",
+        "mqtt.temperatureTopic",
+        "mqtt.humidityTopic",
+        "mqtt.batteryTopic",
+        "mqtt.username",
+        "mqtt.password"
+      ]
     }
   ]
 }

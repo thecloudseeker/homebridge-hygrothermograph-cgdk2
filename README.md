@@ -262,6 +262,14 @@ For more options see the [MQTT.js documentation](https://github.com/mqttjs/MQTT.
 Everything set in `mqtt` will be passed to the `options` argument on `Client`.
 The `Client#publish` options `qos` and `retain` can also be configured the same way.
 
+### Diagnostics
+
+Each sensor's temperature and humidity services expose a `StatusFault` characteristic, which flips once the sensor hasn't reported in for longer than `timeout` — so the Home/Eve app can show "Not Responding" instead of silently keeping the last good reading forever.
+
+The temperature service also carries two custom characteristics for troubleshooting weak or intermittent Bluetooth reception: **Signal Strength (RSSI)**, the sensor's last-seen BLE signal strength in dBm, and **Last Seen**, an ISO 8601 timestamp of its last reading. Both are read-only and mainly useful in apps like Eve that surface arbitrary characteristics — the stock Home app does not display custom characteristics.
+
+Set `logSignalStrength: true` (globally or per-sensor) to also log each RSSI reading at info level, e.g. `[4c:64:a8:d0:ae:65] Signal strength: -55 dBm` — useful for checking reception without turning on full debug logging.
+
 
 ## Technical details
 The plugin scans for [Bluetooth Low Energy](https://en.wikipedia.org/wiki/Bluetooth_Low_Energy) peripherals and check the broadcast advertisement packets.

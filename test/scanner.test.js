@@ -18,6 +18,9 @@ class FakeNoble extends EventEmitter {
     this.startScanningCalls = [];
     this.stopScanningCalls = 0;
     this.startScanningImpl = () => {};
+    // Real noble is already poweredOn by the time most of these tests care
+    // about; the cold-start "unknown" race is exercised by its own test below.
+    this.state = "poweredOn";
   }
   startScanning(...args) {
     this.startScanningCalls.push(args);
@@ -40,8 +43,13 @@ function loadScanner() {
   return { Scanner, noble };
 }
 
-function peripheral({ address, id, serviceData }) {
-  return { address, id, advertisement: { localName: "test", serviceData } };
+function peripheral({ address, id, serviceData, rssi }) {
+  return {
+    address,
+    id,
+    rssi,
+    advertisement: { localName: "test", serviceData },
+  };
 }
 
 const validServiceData = (hex) => [
@@ -147,6 +155,43 @@ test("handleDiscover emits temperature, humidity, and battery for a valid CGDK2 
   assert.equal(seen.change.length, 1);
 });
 
+test("handleDiscover emits rssiChange alongside the parsed readings when rssi is present", () => {
+  const { Scanner, noble } = loadScanner();
+  const scanner = new Scanner(null, { log: createSilentLog() });
+  const seen = [];
+  scanner.on("rssiChange", (v, p) => seen.push([v, p]));
+
+  noble.emit(
+    "discover",
+    peripheral({
+      address: "4c:64:a8:d0:ae:65",
+      serviceData: validServiceData(GOOD_HEX),
+      rssi: -62,
+    }),
+  );
+
+  assert.deepEqual(seen, [
+    [-62, { id: undefined, address: "4c:64:a8:d0:ae:65" }],
+  ]);
+});
+
+test("handleDiscover does not emit rssiChange when the peripheral reports no rssi", () => {
+  const { Scanner, noble } = loadScanner();
+  const scanner = new Scanner(null, { log: createSilentLog() });
+  const seen = [];
+  scanner.on("rssiChange", (v) => seen.push(v));
+
+  noble.emit(
+    "discover",
+    peripheral({
+      address: "4c:64:a8:d0:ae:65",
+      serviceData: validServiceData(GOOD_HEX),
+    }),
+  );
+
+  assert.deepEqual(seen, []);
+});
+
 test("a malformed advertisement emits 'error' instead of throwing", () => {
   const { Scanner, noble } = loadScanner();
   const scanner = new Scanner(null, { log: createSilentLog() });
@@ -191,6 +236,44 @@ test("start() begins scanning and stop() ends it", () => {
   scanner.stop();
   assert.equal(scanner.scanning, false);
   assert.equal(noble.stopScanningCalls, 1);
+});
+
+test("start() waits quietly for the adapter to power on instead of logging an error, and still schedules a retry", (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const { Scanner, noble } = loadScanner();
+  noble.state = "unknown"; // the real state right after noble loads, before the OS reports in
+  const errors = [];
+  const log = { ...createSilentLog(), error: (...args) => errors.push(args) };
+  const scanner = new Scanner(null, { log });
+
+  scanner.start();
+
+  assert.deepEqual(
+    noble.startScanningCalls,
+    [],
+    "must not attempt to scan before the adapter reports poweredOn",
+  );
+  assert.equal(scanner.scanning, false);
+  assert.equal(
+    errors.length,
+    0,
+    "the expected cold-start race must not be logged as an error",
+  );
+  assert.notEqual(
+    scanner.restartTimer,
+    null,
+    "must still schedule a retry as a safety net",
+  );
+});
+
+test("start() proceeds normally once the adapter is already poweredOn", () => {
+  const { Scanner, noble } = loadScanner();
+  const scanner = new Scanner(null, { log: createSilentLog() });
+
+  scanner.start();
+
+  assert.equal(scanner.scanning, true);
+  assert.deepEqual(noble.startScanningCalls, [[[], true]]);
 });
 
 test("start() schedules a restart if noble.startScanning throws", (t) => {

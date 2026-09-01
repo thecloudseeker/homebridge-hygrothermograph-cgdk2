@@ -27,7 +27,11 @@ class FakeGatoHistoryService {
 stubModule(accessoryPath, "fakegato-history", () => FakeGatoHistoryService);
 
 const { Service, Characteristic } = createFakeHap();
-const { HygrothermographCgdk2AccessoryHandler } = require("../lib/accessory")({
+const {
+  HygrothermographCgdk2AccessoryHandler,
+  RSSICharacteristic,
+  LastSeenCharacteristic,
+} = require("../lib/accessory")({
   hap: { Service, Characteristic },
   user: { storagePath: () => "/tmp/fakegato" },
 });
@@ -154,6 +158,123 @@ test("batteryStatus is NORMAL above the low-battery threshold and LOW at or belo
 test("a lowBattery threshold of 0 falls back to the default of 10 (falsy-zero quirk)", () => {
   const { handler } = createHandler({ lowBattery: 0 });
   assert.equal(handler.batteryLevelThreshold, 10);
+});
+
+test("statusFault is NO_FAULT while readings are fresh and GENERAL_FAULT once the sensor times out", (t) => {
+  t.mock.timers.enable({ apis: ["Date"] });
+  const { handler } = createHandler({ timeout: 1 }); // 1 minute
+  handler.setTemperature(20);
+  assert.equal(handler.statusFault, Characteristic.StatusFault.NO_FAULT);
+
+  t.mock.timers.tick(61 * 1000);
+  assert.equal(handler.statusFault, Characteristic.StatusFault.GENERAL_FAULT);
+});
+
+test("setTemperature pushes StatusFault to the temperature service", () => {
+  const { handler, platformAccessory } = createHandler({});
+  const statusFault = platformAccessory
+    .getService(Service.TemperatureSensor)
+    .getCharacteristic(Characteristic.StatusFault);
+
+  handler.setTemperature(20);
+  assert.equal(statusFault.value, Characteristic.StatusFault.NO_FAULT);
+});
+
+test("setHumidity pushes StatusFault to the humidity service", () => {
+  const { handler, platformAccessory } = createHandler({});
+  const statusFault = platformAccessory
+    .getService(Service.HumiditySensor)
+    .getCharacteristic(Characteristic.StatusFault);
+
+  handler.setHumidity(50);
+  assert.equal(statusFault.value, Characteristic.StatusFault.NO_FAULT);
+});
+
+test("rssi is undefined until a reading has been received", () => {
+  const { handler } = createHandler({});
+  assert.equal(handler.rssi, undefined);
+});
+
+test("setRSSI records the value and pushes it to the temperature service", () => {
+  const { handler, platformAccessory } = createHandler({});
+  const rssiCharacteristic = platformAccessory
+    .getService(Service.TemperatureSensor)
+    .getCharacteristic(RSSICharacteristic);
+
+  handler.setRSSI(-55);
+
+  assert.equal(handler.rssi, -55);
+  assert.equal(rssiCharacteristic.value, -55);
+});
+
+test("setRSSI(null) is ignored", () => {
+  const { handler } = createHandler({});
+  handler.setRSSI(-55);
+  handler.setRSSI(null);
+  assert.equal(handler.rssi, -55);
+});
+
+test("setRSSI logs signal strength at info level when logSignalStrength is enabled", () => {
+  const infoMessages = [];
+  const log = {
+    ...createSilentLog(),
+    info: (message) => infoMessages.push(message),
+  };
+  const { handler } = createHandler({ logSignalStrength: true }, log);
+
+  handler.setRSSI(-55);
+
+  assert.deepEqual(infoMessages, [
+    "[4c:64:a8:d0:ae:65] Signal strength: -55 dBm",
+  ]);
+});
+
+test("setRSSI does not log signal strength by default", () => {
+  const infoMessages = [];
+  const log = {
+    ...createSilentLog(),
+    info: (message) => infoMessages.push(message),
+  };
+  const { handler } = createHandler({}, log);
+
+  handler.setRSSI(-55);
+
+  assert.deepEqual(infoMessages, []);
+});
+
+test("lastSeen is undefined until a reading has been received", () => {
+  const { handler } = createHandler({});
+  assert.equal(handler.lastSeen, undefined);
+});
+
+test("lastSeen reflects the last successful reading once one exists", (t) => {
+  t.mock.timers.enable({ apis: ["Date"] });
+  const { handler } = createHandler({});
+  handler.setTemperature(20);
+  assert.equal(handler.lastSeen, new Date().toISOString());
+});
+
+test("setRSSI does not push Last Seen before any reading has been received", () => {
+  const { handler, platformAccessory } = createHandler({});
+  const lastSeenCharacteristic = platformAccessory
+    .getService(Service.TemperatureSensor)
+    .getCharacteristic(LastSeenCharacteristic);
+
+  assert.doesNotThrow(() => handler.setRSSI(-55));
+  assert.equal(lastSeenCharacteristic.value, undefined);
+});
+
+test("setRSSI pushes Last Seen once a reading exists", (t) => {
+  t.mock.timers.enable({ apis: ["Date"] });
+  const { handler, platformAccessory } = createHandler({});
+  const lastSeenCharacteristic = platformAccessory
+    .getService(Service.TemperatureSensor)
+    .getCharacteristic(LastSeenCharacteristic);
+
+  handler.setTemperature(20);
+  handler.setRSSI(-55);
+
+  assert.equal(lastSeenCharacteristic.value, new Date().toISOString());
 });
 
 test("getBatteryService creates a Battery service by default", () => {
