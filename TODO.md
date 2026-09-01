@@ -1,12 +1,5 @@
 # Future improvements
 
-## `fakeGatoOptions` passthrough
-
-Expose a `fakeGatoOptions` config key passed straight through to the
-`fakegato-history` module constructor. We hardcode
-`{ filename, path, storage: "fs" }` in `getFakeGatoHistoryService()` with no
-way for a user to override or extend it.
-
 ## Matter compatibility
 
 Expose sensors as Matter devices, not just HomeKit. This plugin currently

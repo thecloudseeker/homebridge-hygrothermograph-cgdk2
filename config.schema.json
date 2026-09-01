@@ -59,6 +59,11 @@
               "title": "FakeGato Storage Path",
               "type": "string"
             },
+            "fakeGatoOptions": {
+              "title": "FakeGato Options",
+              "type": "object",
+              "description": "Advanced. Extra options passed straight through to the fakegato-history constructor, merged over (and able to override) this plugin's computed filename/path/storage. See the fakegato-history documentation for available options."
+            },
             "timeout": {
               "title": "Timeout (minutes)",
               "type": "integer"
@@ -157,6 +162,11 @@
         "type": "string",
         "description": "Default: optional, specify a custom path to save FakeGato history."
       },
+      "fakeGatoOptions": {
+        "title": "FakeGato Options",
+        "type": "object",
+        "description": "Advanced. Extra options passed straight through to the fakegato-history constructor, merged over (and able to override) this plugin's computed filename/path/storage. See the fakegato-history documentation for available options."
+      },
       "mqtt": {
         "title": "MQTT",
         "type": "object",
@@ -199,7 +209,7 @@
       "type": "fieldset",
       "title": "FakeGato",
       "expandable": true,
-      "items": ["fakeGatoEnabled", "fakeGatoStoragePath"]
+      "items": ["fakeGatoEnabled", "fakeGatoStoragePath", "fakeGatoOptions"]
     },
     {
       "type": "fieldset",

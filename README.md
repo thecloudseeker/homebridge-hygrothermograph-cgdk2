@@ -103,6 +103,7 @@ The following apply to every discovered sensor. All except `forceDiscovering`/`f
 | `temperatureName`       | `"Temperature"` | Name of the temperature sensor as it will appear in your Home-app.                                                                                                                                          |
 | `fakeGatoEnabled`       | `false`         | If historical data should be reported to the Elgato Eve App.                                                                                                                                                |
 | `fakeGatoStoragePath`   |                 | Optional. Custom path where to save fakegato history.                                                                                                                                                       |
+| `fakeGatoOptions`       |                 | Optional. Extra options passed straight through to the `fakegato-history` constructor, merged over (and able to override) the `filename`/`path`/`storage` this plugin computes.                            |
 | `mqtt`                  |                 | Optional. Configuration for publishing values to an MQTT-broker. See the [MQTT](#mqtt) section for details.                                                                                                 |
 | `forceDiscovering`      | `true`          | Retry start scanning for devices when stopped. For some users scanning will be stopped when connecting to other BLE devices. Setting `forceDiscovering` to `true` will start scanning again in these cases. |
 | `forceDiscoveringDelay` | `2.5`           | The delay, in seconds, before scanning restarts after it stops unexpectedly. Only applicable if `forceDiscovering` is `true`. Retries automatically back off (up to 60s) if the adapter keeps failing.       |
@@ -203,6 +204,18 @@ Usually located in `/var/lib/homebridge` or `~/.homebridge`. To customise this o
   "fakeGatoStoragePath": "/tmp/"
 }
 ```
+
+For anything else fakegato-history supports beyond the storage path, set `fakeGatoOptions` — it's passed straight through to the `fakegato-history` constructor, merged over (and able to override) this plugin's own `filename`/`path`/`storage` defaults:
+
+```json
+{
+  "fakeGatoOptions": {
+    "minutes": 5
+  }
+}
+```
+
+See the [fakegato-history](https://github.com/simont77/fakegato-history) source for the full set of supported options.
 
 ### MQTT
 

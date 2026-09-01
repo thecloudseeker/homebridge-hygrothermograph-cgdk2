@@ -1,4 +1,8 @@
 # Changelog
+## 5.2.0
+
+* Added `fakeGatoOptions`: extra options passed straight through to the `fakegato-history` constructor, merged over (and able to override) this plugin's computed `filename`/`path`/`storage`. Previously these were hardcoded with no way to customize or extend them.
+
 ## 5.1.0
 
 * Added `bindKey` support: a per-sensor key that decrypts the CGDK2's normal encrypted Bluetooth broadcasts (Xiaomi's MiBeacon protocol) directly, so it no longer has to be paired via the Qingping+ app to force unencrypted mode. See [Encrypted sensors (bindKey)](README.md#encrypted-sensors-bindkey).

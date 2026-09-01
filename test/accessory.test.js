@@ -271,6 +271,44 @@ test("fakegato history is created with a filename derived from the sensor's addr
   assert.equal(last.options.filename, "fakegato-history_4c64a8d0ae65.json");
 });
 
+test("fakeGatoOptions is merged into the fakegato-history constructor options", () => {
+  const before = fakeGatoConstructions.length;
+  createHandler({
+    fakeGatoEnabled: true,
+    fakeGatoOptions: { minutes: 5, disableTimer: true },
+  });
+  assert.equal(fakeGatoConstructions.length, before + 1);
+  const last = fakeGatoConstructions[fakeGatoConstructions.length - 1];
+  assert.equal(last.options.minutes, 5);
+  assert.equal(last.options.disableTimer, true);
+  // The computed defaults are still present alongside the extra options.
+  assert.equal(last.options.filename, "fakegato-history_4c64a8d0ae65.json");
+  assert.equal(last.options.storage, "fs");
+});
+
+test("fakeGatoOptions can override the computed defaults (filename/path/storage)", () => {
+  const before = fakeGatoConstructions.length;
+  createHandler({
+    fakeGatoEnabled: true,
+    fakeGatoOptions: { storage: "googleDrive" },
+  });
+  assert.equal(fakeGatoConstructions.length, before + 1);
+  const last = fakeGatoConstructions[fakeGatoConstructions.length - 1];
+  assert.equal(last.options.storage, "googleDrive");
+});
+
+test("fakegato history behaves exactly as before when fakeGatoOptions is not configured", () => {
+  const before = fakeGatoConstructions.length;
+  createHandler({ fakeGatoEnabled: true });
+  const last = fakeGatoConstructions[fakeGatoConstructions.length - 1];
+  assert.equal(fakeGatoConstructions.length, before + 1);
+  assert.deepEqual(Object.keys(last.options).sort(), [
+    "filename",
+    "path",
+    "storage",
+  ]);
+});
+
 test("the fakegato history service is actually attached to the platform accessory, not just constructed", () => {
   const { handler, platformAccessory } = createHandler({
     fakeGatoEnabled: true,
