@@ -26,13 +26,13 @@ class FakeGatoHistoryService {
 }
 stubModule(accessoryPath, "fakegato-history", () => FakeGatoHistoryService);
 
-const { Service, Characteristic } = createFakeHap();
+const { Service, Characteristic, Formats, Perms } = createFakeHap();
 const {
   HygrothermographCgdk2AccessoryHandler,
   RSSICharacteristic,
   LastSeenCharacteristic,
 } = require("../lib/accessory")({
-  hap: { Service, Characteristic },
+  hap: { Service, Characteristic, Formats, Perms },
   user: { storagePath: () => "/tmp/fakegato" },
 });
 
@@ -261,7 +261,11 @@ test("setRSSI does not push Last Seen before any reading has been received", () 
     .getCharacteristic(LastSeenCharacteristic);
 
   assert.doesNotThrow(() => handler.setRSSI(-55));
-  assert.equal(lastSeenCharacteristic.value, undefined);
+  assert.equal(
+    lastSeenCharacteristic.value,
+    "",
+    "must stay at its unset default, not be pushed a timestamp",
+  );
 });
 
 test("setRSSI pushes Last Seen once a reading exists", (t) => {

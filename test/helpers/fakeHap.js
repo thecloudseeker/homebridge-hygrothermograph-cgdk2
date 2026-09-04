@@ -18,6 +18,19 @@ class FakeCharacteristic {
     this.value = value;
     return this;
   }
+  // Mirrors real HAP-NodeJS's Characteristic#getDefaultValue: a sensible
+  // zero-ish value based on the format set via setProps, used by custom
+  // characteristics (e.g. RSSICharacteristic) to seed their initial value.
+  getDefaultValue() {
+    switch (this.props?.format) {
+      case "string":
+        return "";
+      case "bool":
+        return false;
+      default:
+        return 0;
+    }
+  }
 }
 
 class FakeService {
@@ -25,16 +38,19 @@ class FakeService {
     this.displayName = displayName;
     this.characteristics = new Map();
   }
+  // Actually constructs the passed-in class (not a generic stand-in): a
+  // custom characteristic's own constructor — where it calls setProps with
+  // real Formats/Perms values — needs to genuinely run under test, or a
+  // broken constructor (as happened in production) never surfaces here.
   getCharacteristic(CharClass) {
     if (!this.characteristics.has(CharClass)) {
-      this.characteristics.set(CharClass, new FakeCharacteristic());
+      this.characteristics.set(CharClass, new CharClass());
     }
     return this.characteristics.get(CharClass);
   }
   // Real HAP dedupes by UUID: adding an already-present custom characteristic
-  // returns the existing instance instead of creating a duplicate. This fake
-  // never actually instantiates the passed-in class (see getCharacteristic),
-  // so plain reuse-by-key already gives us that same idempotency for free.
+  // returns the existing instance instead of creating a duplicate. Reuse-by-
+  // key here gives us that same idempotency (and still only constructs once).
   addCharacteristic(CharClass) {
     return this.getCharacteristic(CharClass);
   }
@@ -92,8 +108,6 @@ function createFakeHap() {
   Characteristic.ChargingState = class extends FakeCharacteristic {};
   Characteristic.StatusLowBattery = class extends FakeCharacteristic {};
   Characteristic.StatusFault = class extends FakeCharacteristic {};
-  Characteristic.Formats = { INT: "int", STRING: "string" };
-  Characteristic.Perms = { PAIRED_READ: "pr", NOTIFY: "ev" };
   Characteristic.ChargingState.NOT_CHARGEABLE = 2;
   Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL = 0;
   Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW = 1;
@@ -107,7 +121,14 @@ function createFakeHap() {
     Battery: class {},
   };
 
-  return { Service, Characteristic };
+  // Real HAP-NodeJS 2.x only exposes Formats/Perms as top-level `hap`
+  // exports, not as `Characteristic.Formats`/`Characteristic.Perms` (that
+  // alias was removed; see lib/accessory.js's factory comment). Mirror that
+  // shape here so a regression back to the removed alias fails the suite.
+  const Formats = { INT: "int", STRING: "string" };
+  const Perms = { PAIRED_READ: "pr", NOTIFY: "ev" };
+
+  return { Service, Characteristic, Formats, Perms };
 }
 
 function createSilentLog() {
