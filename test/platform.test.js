@@ -519,6 +519,182 @@ test("a per-sensor name override is applied to the accessory at creation time", 
   assert.equal(api.registered[0].displayName, "Living Room");
 });
 
+test("startDiscovery logs which configured sensors it's still waiting to discover", () => {
+  const { HygrothermographCgdk2Platform } = loadPlatform();
+  const api = new FakeAPI();
+  const infoMessages = [];
+  const log = { ...createSilentLog(), info: (msg) => infoMessages.push(msg) };
+  new HygrothermographCgdk2Platform(
+    log,
+    {
+      sensors: [
+        { address: "4c:64:a8:d0:ae:65" },
+        { address: "2c:34:b3:d4:a1:61" },
+      ],
+    },
+    api,
+  );
+
+  api.emit("didFinishLaunching");
+
+  assert.ok(
+    infoMessages.some(
+      (msg) =>
+        msg ===
+        "Waiting to discover 2 configured sensor(s): [4c:64:a8:d0:ae:65, 2c:34:b3:d4:a1:61]",
+    ),
+  );
+});
+
+test("startDiscovery does not log a waiting list when no sensors are configured", () => {
+  const { HygrothermographCgdk2Platform } = loadPlatform();
+  const api = new FakeAPI();
+  const infoMessages = [];
+  const log = { ...createSilentLog(), info: (msg) => infoMessages.push(msg) };
+  new HygrothermographCgdk2Platform(log, {}, api);
+
+  api.emit("didFinishLaunching");
+
+  assert.ok(!infoMessages.some((msg) => msg.startsWith("Waiting to discover")));
+});
+
+test("a configured sensor ignored via ignoredAddresses is excluded from the waiting list", () => {
+  const { HygrothermographCgdk2Platform } = loadPlatform();
+  const api = new FakeAPI();
+  const infoMessages = [];
+  const log = { ...createSilentLog(), info: (msg) => infoMessages.push(msg) };
+  new HygrothermographCgdk2Platform(
+    log,
+    {
+      ignoredAddresses: ["4c:64:a8:d0:ae:65"],
+      sensors: [
+        { address: "4c:64:a8:d0:ae:65" },
+        { address: "2c:34:b3:d4:a1:61" },
+      ],
+    },
+    api,
+  );
+
+  api.emit("didFinishLaunching");
+
+  assert.ok(
+    infoMessages.some(
+      (msg) =>
+        msg ===
+        "Waiting to discover 1 configured sensor(s): [2c:34:b3:d4:a1:61]",
+    ),
+  );
+});
+
+test("the scanner's 'change' event logs a first-discovery confirmation for a new address", () => {
+  const { HygrothermographCgdk2Platform, createdScanners } = loadPlatform();
+  const api = new FakeAPI();
+  const infoMessages = [];
+  const log = { ...createSilentLog(), info: (msg) => infoMessages.push(msg) };
+  new HygrothermographCgdk2Platform(log, {}, api);
+  api.emit("didFinishLaunching");
+  const scanner = latestScanner(createdScanners);
+
+  scanner.emit("change", {}, { address: "4c:64:a8:d0:ae:65" });
+
+  assert.ok(
+    infoMessages.includes(
+      "[4c:64:a8:d0:ae:65] Sensor discovered — now receiving readings.",
+    ),
+  );
+});
+
+test("the first-discovery confirmation is only logged once per address, even across repeated 'change' events", () => {
+  const { HygrothermographCgdk2Platform, createdScanners } = loadPlatform();
+  const api = new FakeAPI();
+  const infoMessages = [];
+  const log = { ...createSilentLog(), info: (msg) => infoMessages.push(msg) };
+  new HygrothermographCgdk2Platform(log, {}, api);
+  api.emit("didFinishLaunching");
+  const scanner = latestScanner(createdScanners);
+
+  scanner.emit("change", {}, { address: "4c:64:a8:d0:ae:65" });
+  scanner.emit("change", {}, { address: "4c:64:a8:d0:ae:65" });
+
+  const matches = infoMessages.filter((msg) =>
+    msg.includes("Sensor discovered"),
+  );
+  assert.equal(matches.length, 1);
+});
+
+test("discovering a configured (but not yet the last) sensor lists what's still pending", () => {
+  const { HygrothermographCgdk2Platform, createdScanners } = loadPlatform();
+  const api = new FakeAPI();
+  const infoMessages = [];
+  const log = { ...createSilentLog(), info: (msg) => infoMessages.push(msg) };
+  new HygrothermographCgdk2Platform(
+    log,
+    {
+      sensors: [
+        { address: "4c:64:a8:d0:ae:65" },
+        { address: "2c:34:b3:d4:a1:61" },
+      ],
+    },
+    api,
+  );
+  api.emit("didFinishLaunching");
+  const scanner = latestScanner(createdScanners);
+
+  scanner.emit("change", {}, { address: "4c:64:a8:d0:ae:65" });
+
+  assert.ok(
+    infoMessages.includes(
+      "[4c:64:a8:d0:ae:65] Sensor discovered — now receiving readings. Still waiting for: [2c:34:b3:d4:a1:61]",
+    ),
+  );
+});
+
+test("discovering the last remaining configured sensor announces that all have been found", () => {
+  const { HygrothermographCgdk2Platform, createdScanners } = loadPlatform();
+  const api = new FakeAPI();
+  const infoMessages = [];
+  const log = { ...createSilentLog(), info: (msg) => infoMessages.push(msg) };
+  new HygrothermographCgdk2Platform(
+    log,
+    {
+      sensors: [
+        { address: "4c:64:a8:d0:ae:65" },
+        { address: "2c:34:b3:d4:a1:61" },
+      ],
+    },
+    api,
+  );
+  api.emit("didFinishLaunching");
+  const scanner = latestScanner(createdScanners);
+
+  scanner.emit("change", {}, { address: "4c:64:a8:d0:ae:65" });
+  scanner.emit("change", {}, { address: "2c:34:b3:d4:a1:61" });
+
+  assert.ok(
+    infoMessages.includes(
+      "[2c:34:b3:d4:a1:61] Sensor discovered — now receiving readings. All configured sensors have been found.",
+    ),
+  );
+});
+
+test("an ignored address never triggers a first-discovery confirmation", () => {
+  const { HygrothermographCgdk2Platform, createdScanners } = loadPlatform();
+  const api = new FakeAPI();
+  const infoMessages = [];
+  const log = { ...createSilentLog(), info: (msg) => infoMessages.push(msg) };
+  new HygrothermographCgdk2Platform(
+    log,
+    { ignoredAddresses: ["4c:64:a8:d0:ae:65"] },
+    api,
+  );
+  api.emit("didFinishLaunching");
+  const scanner = latestScanner(createdScanners);
+
+  scanner.emit("change", {}, { address: "4c:64:a8:d0:ae:65" });
+
+  assert.ok(!infoMessages.some((msg) => msg.includes("Sensor discovered")));
+});
+
 test("a per-sensor mqtt override merges with (not replaces) the platform-level mqtt config", () => {
   const { HygrothermographCgdk2Platform, createdScanners } = loadPlatform();
   const api = new FakeAPI();

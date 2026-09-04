@@ -1,4 +1,8 @@
 # Changelog
+## 5.4.0
+
+* Added startup/discovery log lines confirming when a sensor actually starts receiving readings, instead of silence: `[address] Sensor discovered — now receiving readings.` For sensors explicitly listed under `sensors[]`, startup also logs which of them are still pending (`Waiting to discover N configured sensor(s): [...]`) and each discovery updates that list until all have been found.
+
 ## 5.3.1
 
 * Fixed a critical regression from 5.3.0: every accessory failed to load (`TypeError: Cannot read properties of undefined (reading 'INT')`) on Homebridge 2.x / HAP-NodeJS 2.x, because the new RSSI/Last Seen characteristics referenced `Characteristic.Formats`/`Characteristic.Perms`, an alias HAP-NodeJS 2.x removed. They're now read from the `Formats`/`Perms` exports directly, which exist on both HAP-NodeJS 1.x and 2.x. If you updated to 5.3.0 and saw sensors disappear or errors on every restart, this fixes it.
