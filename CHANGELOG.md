@@ -1,4 +1,8 @@
 # Changelog
+## 5.4.1
+
+* Fixed a critical regression from 5.3.1: restoring a cached accessory that already had its RSSI/Last Seen characteristics from a prior run threw `Error: Cannot add a Characteristic with the same UUID...` on every restart, since they were added with `addCharacteristic` (throws on duplicates) instead of `getCharacteristic` (add-or-reuse).
+
 ## 5.4.0
 
 * Added startup/discovery log lines confirming when a sensor actually starts receiving readings, instead of silence: `[address] Sensor discovered — now receiving readings.` For sensors explicitly listed under `sensors[]`, startup also logs which of them are still pending (`Waiting to discover N configured sensor(s): [...]`) and each discovery updates that list until all have been found.

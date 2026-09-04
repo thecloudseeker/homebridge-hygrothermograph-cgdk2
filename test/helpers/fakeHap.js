@@ -36,6 +36,11 @@ class FakeCharacteristic {
 class FakeService {
   constructor(displayName) {
     this.displayName = displayName;
+    // Keyed by characteristic UUID, matching real HAP-NodeJS — which
+    // dedupes (and rejects duplicate adds) by UUID, not by JS class
+    // identity. This matters for restored cached accessories: they already
+    // carry their previously-added characteristics, so re-adding the same
+    // UUID must be detected the same way it would be in production.
     this.characteristics = new Map();
   }
   // Actually constructs the passed-in class (not a generic stand-in): a
@@ -43,15 +48,22 @@ class FakeService {
   // real Formats/Perms values — needs to genuinely run under test, or a
   // broken constructor (as happened in production) never surfaces here.
   getCharacteristic(CharClass) {
-    if (!this.characteristics.has(CharClass)) {
-      this.characteristics.set(CharClass, new CharClass());
+    if (!this.characteristics.has(CharClass.UUID)) {
+      this.characteristics.set(CharClass.UUID, new CharClass());
     }
-    return this.characteristics.get(CharClass);
+    return this.characteristics.get(CharClass.UUID);
   }
-  // Real HAP dedupes by UUID: adding an already-present custom characteristic
-  // returns the existing instance instead of creating a duplicate. Reuse-by-
-  // key here gives us that same idempotency (and still only constructs once).
+  // Real HAP throws if a characteristic with this UUID is already present on
+  // the service — unlike getCharacteristic, it is not add-or-reuse. This bit
+  // us in production: a cached accessory already has its RSSI characteristic
+  // from a prior run, so calling addCharacteristic for it again on restore
+  // threw "Cannot add a Characteristic with the same UUID...".
   addCharacteristic(CharClass) {
+    if (this.characteristics.has(CharClass.UUID)) {
+      throw new Error(
+        `Cannot add a Characteristic with the same UUID as another Characteristic in this Service: ${CharClass.UUID}`,
+      );
+    }
     return this.getCharacteristic(CharClass);
   }
   setCharacteristic(CharClass, value) {
@@ -92,22 +104,34 @@ class FakePlatformAccessory {
   }
 }
 
+// Real characteristic classes always carry a static UUID (used for dedup —
+// see FakeService above); give each fake built-in a distinct one too, or
+// they'd all collide on the same `undefined` key.
+function defineCharacteristic(name) {
+  const cls = class extends FakeCharacteristic {};
+  cls.UUID = `uuid:${name}`;
+  return cls;
+}
+
 function createFakeHap() {
   // Real HAP's Characteristic is itself an extendable base class (plugins
   // commonly declare `class Custom extends Characteristic {}` for custom
   // characteristics), with built-ins attached as static properties on it —
   // not a plain namespace object. Mirror that shape here.
   class Characteristic extends FakeCharacteristic {}
-  Characteristic.Manufacturer = class extends FakeCharacteristic {};
-  Characteristic.Model = class extends FakeCharacteristic {};
-  Characteristic.FirmwareRevision = class extends FakeCharacteristic {};
-  Characteristic.SerialNumber = class extends FakeCharacteristic {};
-  Characteristic.CurrentTemperature = class extends FakeCharacteristic {};
-  Characteristic.CurrentRelativeHumidity = class extends FakeCharacteristic {};
-  Characteristic.BatteryLevel = class extends FakeCharacteristic {};
-  Characteristic.ChargingState = class extends FakeCharacteristic {};
-  Characteristic.StatusLowBattery = class extends FakeCharacteristic {};
-  Characteristic.StatusFault = class extends FakeCharacteristic {};
+  Characteristic.Manufacturer = defineCharacteristic("Manufacturer");
+  Characteristic.Model = defineCharacteristic("Model");
+  Characteristic.FirmwareRevision = defineCharacteristic("FirmwareRevision");
+  Characteristic.SerialNumber = defineCharacteristic("SerialNumber");
+  Characteristic.CurrentTemperature =
+    defineCharacteristic("CurrentTemperature");
+  Characteristic.CurrentRelativeHumidity = defineCharacteristic(
+    "CurrentRelativeHumidity",
+  );
+  Characteristic.BatteryLevel = defineCharacteristic("BatteryLevel");
+  Characteristic.ChargingState = defineCharacteristic("ChargingState");
+  Characteristic.StatusLowBattery = defineCharacteristic("StatusLowBattery");
+  Characteristic.StatusFault = defineCharacteristic("StatusFault");
   Characteristic.ChargingState.NOT_CHARGEABLE = 2;
   Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL = 0;
   Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW = 1;

@@ -214,6 +214,22 @@ test("setRSSI(null) is ignored", () => {
   assert.equal(handler.rssi, -55);
 });
 
+test("reconstructing a handler against an accessory that already has its RSSI/Last Seen characteristics (simulating a restored cached accessory) does not throw", () => {
+  const { platformAccessory } = createHandler({});
+  // A restart restores the same platformAccessory object from Homebridge's
+  // cache — already carrying the characteristics added during the first
+  // construction above. Real HAP's addCharacteristic throws on a duplicate
+  // UUID (unlike getCharacteristic's add-or-reuse); this reproduces that
+  // exact restore path.
+  assert.doesNotThrow(() => {
+    new HygrothermographCgdk2AccessoryHandler(
+      platformAccessory,
+      { address: "4c:64:a8:d0:ae:65" },
+      createSilentLog(),
+    );
+  });
+});
+
 test("setRSSI logs signal strength at info level when logSignalStrength is enabled", () => {
   const infoMessages = [];
   const log = {
