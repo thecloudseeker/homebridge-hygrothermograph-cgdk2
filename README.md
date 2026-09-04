@@ -270,7 +270,7 @@ The temperature service also carries two custom characteristics for troubleshoot
 
 Set `logSignalStrength: true` (globally or per-sensor) to also log each RSSI reading at info level, e.g. `[4c:64:a8:d0:ae:65] Signal strength: -55 dBm` — useful for checking reception without turning on full debug logging.
 
-At startup, the plugin also logs a confirmation the first time each sensor actually starts receiving readings (`[address] Sensor discovered — now receiving readings.`), rather than staying silent until you check the accessory in Home. If you've explicitly listed addresses under `sensors[]`, startup also logs which of them haven't been found yet (`Waiting to discover N configured sensor(s): [...]`), and that list is updated as each one is discovered.
+At startup, the plugin also logs a confirmation the first time each sensor actually starts receiving readings (`[address] Sensor discovered - now receiving readings.`), rather than staying silent until you check the accessory in Home. If you've explicitly listed addresses under `sensors[]`, startup also logs which of them haven't been found yet (`Waiting to discover N configured sensor(s): [...]`), and that list is updated as each one is discovered.
 
 
 ## Technical details

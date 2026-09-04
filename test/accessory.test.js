@@ -170,6 +170,26 @@ test("statusFault is NO_FAULT while readings are fresh and GENERAL_FAULT once th
   assert.equal(handler.statusFault, Characteristic.StatusFault.GENERAL_FAULT);
 });
 
+test("a stale sensor logs the timeout warning once, not once per getter read", (t) => {
+  t.mock.timers.enable({ apis: ["Date"] });
+  const warnings = [];
+  const log = { ...createSilentLog(), warn: (...args) => warnings.push(args) };
+  const { handler } = createHandler({ timeout: 1 }, log); // 1 minute
+
+  handler.setTemperature(20);
+  t.mock.timers.tick(61 * 1000);
+
+  // Several timeout-gated getters are read after the sensor has gone stale
+  // (as flushBatchedUpdate/setTemperature/setHumidity all do) — this must
+  // only log the warning once, not once per read.
+  void handler.temperature;
+  void handler.humidity;
+  void handler.batteryLevel;
+  void handler.statusFault;
+
+  assert.equal(warnings.length, 1);
+});
+
 test("setTemperature pushes StatusFault to the temperature service", () => {
   const { handler, platformAccessory } = createHandler({});
   const statusFault = platformAccessory

@@ -599,7 +599,7 @@ test("the scanner's 'change' event logs a first-discovery confirmation for a new
 
   assert.ok(
     infoMessages.includes(
-      "[4c:64:a8:d0:ae:65] Sensor discovered — now receiving readings.",
+      "[4c:64:a8:d0:ae:65] Sensor discovered - now receiving readings.",
     ),
   );
 });
@@ -644,7 +644,7 @@ test("discovering a configured (but not yet the last) sensor lists what's still 
 
   assert.ok(
     infoMessages.includes(
-      "[4c:64:a8:d0:ae:65] Sensor discovered — now receiving readings. Still waiting for: [2c:34:b3:d4:a1:61]",
+      "[4c:64:a8:d0:ae:65] Sensor discovered - now receiving readings. Still waiting for: [2c:34:b3:d4:a1:61]",
     ),
   );
 });
@@ -672,7 +672,7 @@ test("discovering the last remaining configured sensor announces that all have b
 
   assert.ok(
     infoMessages.includes(
-      "[2c:34:b3:d4:a1:61] Sensor discovered — now receiving readings. All configured sensors have been found.",
+      "[2c:34:b3:d4:a1:61] Sensor discovered - now receiving readings. All configured sensors have been found.",
     ),
   );
 });
