@@ -272,6 +272,11 @@ Set `logSignalStrength: true` (globally or per-sensor) to also log each RSSI rea
 
 At startup, the plugin also logs a confirmation the first time each sensor actually starts receiving readings (`[address] Sensor discovered - now receiving readings.`), rather than staying silent until you check the accessory in Home. If you've explicitly listed addresses under `sensors[]`, startup also logs which of them haven't been found yet (`Waiting to discover N configured sensor(s): [...]`), and that list is updated as each one is discovered.
 
+### Matter (beta)
+
+This plugin supports Homebridge's experimental Matter bridging, in addition to (not instead of) its normal HomeKit accessories. Enable it via **Enable Matter** in this plugin's child bridge settings in the Homebridge UI — no separate setting is needed in this plugin's own config. Once enabled, each sensor also registers as a Matter device with separate Temperature and Humidity tiles, so it can be added to Google Home, Amazon Alexa, SmartThings, or any other Matter controller alongside its existing HomeKit pairing.
+
+Matter is a Homebridge 2.4+ feature and is still evolving; on older Homebridge versions this plugin simply skips it and behaves exactly as before. Diagnostics (RSSI, Last Seen, StatusFault/"Not Responding") and Battery are HomeKit-only for now — Matter only carries Temperature and Humidity.
 
 ## Technical details
 The plugin scans for [Bluetooth Low Energy](https://en.wikipedia.org/wiki/Bluetooth_Low_Energy) peripherals and check the broadcast advertisement packets.

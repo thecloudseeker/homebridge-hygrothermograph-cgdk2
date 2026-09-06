@@ -6,14 +6,16 @@ const {
   FakePlatformAccessory,
   createSilentLog,
 } = require("./helpers/fakeHap");
+const { createFakeMatter } = require("./helpers/fakeMatter");
 
 const platformPath = require.resolve("../lib/platform");
 
 class FakeHandler {
-  constructor(platformAccessory, config, log) {
+  constructor(platformAccessory, config, log, matterAccessory) {
     this.platformAccessory = platformAccessory;
     this.config = config;
     this.log = log;
+    this.matterAccessory = matterAccessory;
     this.calls = {
       temperature: [],
       humidity: [],
@@ -56,12 +58,28 @@ class FakeScanner extends EventEmitter {
 }
 
 class FakeAPI extends EventEmitter {
-  constructor() {
+  constructor({
+    matterAvailable = false,
+    matterEnabled = false,
+    matterVersionSatisfied = true,
+    matter,
+  } = {}) {
     super();
     this.hap = { uuid: { generate: (seed) => `uuid:${seed}` } };
     this.platformAccessory = FakePlatformAccessory;
     this.registered = [];
     this.unregistered = [];
+    // Matter is opt-in per test: most tests construct a plain FakeAPI (no
+    // args), which must behave exactly as it did before Matter existed -
+    // isMatterAvailable/isMatterEnabled/versionGreaterOrEqual simply aren't
+    // there, so HygrothermographCgdk2Platform's optional-chained checks see
+    // undefined and never touch `matter` at all.
+    if (matterAvailable) {
+      this.matter = matter || createFakeMatter();
+      this.isMatterAvailable = () => true;
+      this.isMatterEnabled = () => matterEnabled;
+      this.versionGreaterOrEqual = () => matterVersionSatisfied;
+    }
   }
   registerPlatformAccessories(pluginId, platformName, accessories) {
     this.registered.push(...accessories);
@@ -722,4 +740,213 @@ test("a per-sensor mqtt override merges with (not replaces) the platform-level m
     username: "admin",
     temperatureTopic: "custom/topic",
   });
+});
+
+test("without Matter available, a discovered sensor's handler gets no Matter accessory", () => {
+  const { HygrothermographCgdk2Platform, createdScanners } = loadPlatform();
+  const api = new FakeAPI();
+  const platform = new HygrothermographCgdk2Platform(
+    createSilentLog(),
+    {},
+    api,
+  );
+  api.emit("didFinishLaunching");
+  const scanner = latestScanner(createdScanners);
+
+  scanner.emit("temperatureChange", 21.5, { address: "4c:64:a8:d0:ae:65" });
+
+  const handler = platform.handlers.get("4c64a8d0ae65");
+  assert.equal(handler.matterAccessory, undefined);
+  assert.equal(api.registered.length, 1, "the HAP accessory is unaffected");
+});
+
+test("with Matter available but not enabled on this bridge, no Matter accessory is registered", () => {
+  const { HygrothermographCgdk2Platform, createdScanners } = loadPlatform();
+  const api = new FakeAPI({ matterAvailable: true, matterEnabled: false });
+  new HygrothermographCgdk2Platform(createSilentLog(), {}, api);
+  api.emit("didFinishLaunching");
+  const scanner = latestScanner(createdScanners);
+
+  scanner.emit("temperatureChange", 21.5, { address: "4c:64:a8:d0:ae:65" });
+
+  assert.equal(api.matter.accessories.size, 0);
+});
+
+test("with Matter enabled, a newly discovered sensor also gets a composed Matter accessory registered", () => {
+  const { HygrothermographCgdk2Platform, createdScanners } = loadPlatform();
+  const api = new FakeAPI({ matterAvailable: true, matterEnabled: true });
+  const platform = new HygrothermographCgdk2Platform(
+    createSilentLog(),
+    {},
+    api,
+  );
+  api.emit("didFinishLaunching");
+  const scanner = latestScanner(createdScanners);
+
+  scanner.emit("temperatureChange", 21.5, { address: "4c:64:a8:d0:ae:65" });
+
+  const handler = platform.handlers.get("4c64a8d0ae65");
+  assert.notEqual(handler.matterAccessory, undefined);
+  assert.equal(api.matter.accessories.size, 1);
+  const [registered] = api.matter.accessories.values();
+  assert.equal(registered.UUID, handler.matterAccessory.UUID);
+  assert.equal(registered.deviceType, api.matter.deviceTypes.BridgedNode);
+  assert.equal(registered.parts.length, 2);
+});
+
+// Relies on handlerFor()'s own `this.handlers` dedup (see "re-discovering
+// the same sensor ... reuses its handler" above) rather than any separate
+// Matter-specific dedup: buildMatterAccessory has none, since registerHandler
+// (its only caller) is itself never invoked twice for the same address.
+test("re-discovering the same sensor does not register a second Matter accessory", () => {
+  const { HygrothermographCgdk2Platform, createdScanners } = loadPlatform();
+  const api = new FakeAPI({ matterAvailable: true, matterEnabled: true });
+  new HygrothermographCgdk2Platform(createSilentLog(), {}, api);
+  api.emit("didFinishLaunching");
+  const scanner = latestScanner(createdScanners);
+
+  scanner.emit("temperatureChange", 21.5, { address: "4c:64:a8:d0:ae:65" });
+  scanner.emit("temperatureChange", 21.6, { address: "4C:64:A8:D0:AE:65" });
+
+  assert.equal(api.matter.accessories.size, 1);
+});
+
+test("configureMatterAccessory unregisters a cached Matter accessory whose address became ignored", () => {
+  const { HygrothermographCgdk2Platform } = loadPlatform();
+  const matter = createFakeMatter();
+  const cachedMatterAccessory = {
+    UUID: "matter-uuid:cached",
+    displayName: "CGDK2 AE:65",
+    context: { address: "4c:64:a8:d0:ae:65" },
+  };
+  matter.accessories.set(cachedMatterAccessory.UUID, cachedMatterAccessory);
+  const api = new FakeAPI({
+    matterAvailable: true,
+    matterEnabled: true,
+    matter,
+  });
+  const platform = new HygrothermographCgdk2Platform(
+    createSilentLog(),
+    { ignoredAddresses: ["4c:64:a8:d0:ae:65"] },
+    api,
+  );
+
+  platform.configureMatterAccessory(cachedMatterAccessory);
+
+  assert.equal(matter.accessories.has(cachedMatterAccessory.UUID), false);
+});
+
+test("configureMatterAccessory leaves a cached Matter accessory alone when its address is still active", () => {
+  const { HygrothermographCgdk2Platform } = loadPlatform();
+  const matter = createFakeMatter();
+  const cachedMatterAccessory = {
+    UUID: "matter-uuid:cached",
+    displayName: "CGDK2 AE:65",
+    context: { address: "4c:64:a8:d0:ae:65" },
+  };
+  matter.accessories.set(cachedMatterAccessory.UUID, cachedMatterAccessory);
+  const api = new FakeAPI({
+    matterAvailable: true,
+    matterEnabled: true,
+    matter,
+  });
+  const platform = new HygrothermographCgdk2Platform(
+    createSilentLog(),
+    {},
+    api,
+  );
+
+  platform.configureMatterAccessory(cachedMatterAccessory);
+
+  assert.equal(matter.accessories.has(cachedMatterAccessory.UUID), true);
+});
+
+// Homebridge's own Matter API rejects registerPlatformAccessories() called
+// before didFinishLaunching ("Do this from your platform's
+// 'didFinishLaunching' event, not during plugin initialisation" - verified
+// against Homebridge 2.4.0's real source), and configureAccessory (which
+// restores cached accessories) runs before that point.
+test("a cached accessory restored via configureAccessory gets its Matter accessory only once didFinishLaunching fires, not during the restore itself", () => {
+  const { HygrothermographCgdk2Platform } = loadPlatform();
+  const api = new FakeAPI({ matterAvailable: true, matterEnabled: true });
+  const platform = new HygrothermographCgdk2Platform(
+    createSilentLog(),
+    {},
+    api,
+  );
+  const cached = new FakePlatformAccessory("CGDK2 AE:65", "uuid:cached");
+  cached.context.address = "4c:64:a8:d0:ae:65";
+
+  platform.configureAccessory(cached);
+  const handler = platform.handlers.get("4c64a8d0ae65");
+  assert.equal(
+    handler.matterAccessory,
+    undefined,
+    "must not attempt Matter registration before didFinishLaunching",
+  );
+  assert.equal(api.matter.accessories.size, 0);
+
+  api.emit("didFinishLaunching");
+
+  assert.notEqual(handler.matterAccessory, undefined);
+  assert.equal(api.matter.accessories.size, 1);
+});
+
+test("matterEnabled additionally requires versionGreaterOrEqual('2.4.0'), not just isMatterAvailable/isMatterEnabled", () => {
+  const { HygrothermographCgdk2Platform, createdScanners } = loadPlatform();
+  const api = new FakeAPI({
+    matterAvailable: true,
+    matterEnabled: true,
+    matterVersionSatisfied: false,
+  });
+  new HygrothermographCgdk2Platform(createSilentLog(), {}, api);
+  api.emit("didFinishLaunching");
+  const scanner = latestScanner(createdScanners);
+
+  scanner.emit("temperatureChange", 21.5, { address: "4c:64:a8:d0:ae:65" });
+
+  assert.equal(api.matter.accessories.size, 0);
+});
+
+// isMatterEnabled() is not a reliable "Matter works on THIS bridge" signal by
+// itself (verified against Homebridge 2.4.0's real source): on a plugin
+// running on the main bridge it is set merely because *some* bridge in the
+// whole config has Matter on, including an unrelated plugin's own child
+// bridge, and registerPlatformAccessories then rejects with "Matter is not
+// enabled for this bridge". Without handling that, every subsequent reading
+// would try to push to an accessory that was never actually registered.
+// The actual "no repeated error spam on every subsequent reading" behavior
+// is Cgdk2MatterAccessory.pushState's own guard, exercised directly in
+// matterAccessory.test.js ("pushState does nothing after
+// markRegistrationFailed()"); platform.test.js stubs out lib/accessory.js
+// entirely (FakeHandler never touches matterAccessory), so this only checks
+// that the platform correctly marks the real Cgdk2MatterAccessory instance
+// as failed - once - rather than that no fake spam.
+test("a rejected Matter registration marks the accessory failed (once, not registered) instead of silently succeeding", async () => {
+  const { HygrothermographCgdk2Platform, createdScanners } = loadPlatform();
+  const matter = createFakeMatter({
+    registrationError: new Error("Matter is not enabled for this bridge"),
+  });
+  const errors = [];
+  const log = { ...createSilentLog(), error: (...args) => errors.push(args) };
+  const api = new FakeAPI({
+    matterAvailable: true,
+    matterEnabled: true,
+    matter,
+  });
+  const platform = new HygrothermographCgdk2Platform(log, {}, api);
+  api.emit("didFinishLaunching");
+  const scanner = latestScanner(createdScanners);
+
+  scanner.emit("temperatureChange", 21.5, { address: "4c:64:a8:d0:ae:65" });
+  const handler = platform.handlers.get("4c64a8d0ae65");
+  assert.notEqual(handler.matterAccessory, undefined);
+
+  // The registration promise's rejection handler runs on a later microtask.
+  await Promise.resolve();
+  await Promise.resolve();
+
+  assert.equal(handler.matterAccessory.registered, false);
+  assert.equal(handler.matterAccessory.registrationFailed, true);
+  assert.equal(errors.length, 1);
 });

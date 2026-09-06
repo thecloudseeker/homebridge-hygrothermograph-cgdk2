@@ -1,4 +1,10 @@
 # Changelog
+## 5.5.0
+
+* Added Matter support alongside the existing HomeKit accessory: enable via **Enable Matter** in this plugin's child bridge settings. See [Matter (beta)](README.md#matter-beta).
+* Fixed `temperatureOffset`/`humidityOffset` not applying to live-pushed HomeKit updates, only to polled reads.
+* Fixed the offset being applied twice to MQTT/Fakegato values when `updateInterval` is set.
+
 ## 5.4.2
 
 * Fixed garbled text in the "Sensor discovered" log line on non-UTF-8 hosts.

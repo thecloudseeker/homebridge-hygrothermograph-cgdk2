@@ -6,6 +6,7 @@ const {
   FakePlatformAccessory,
   createSilentLog,
 } = require("./helpers/fakeHap");
+const { createFakeMatterAccessory } = require("./helpers/fakeMatter");
 
 const accessoryPath = require.resolve("../lib/accessory");
 
@@ -36,7 +37,7 @@ const {
   user: { storagePath: () => "/tmp/fakegato" },
 });
 
-function createHandler(config, log = createSilentLog()) {
+function createHandler(config, log = createSilentLog(), matterAccessory) {
   const platformAccessory = new FakePlatformAccessory(
     "Test Sensor",
     "uuid:test",
@@ -45,6 +46,7 @@ function createHandler(config, log = createSilentLog()) {
     platformAccessory,
     { address: "4c:64:a8:d0:ae:65", ...config },
     log,
+    matterAccessory,
   );
   return { handler, platformAccessory };
 }
@@ -141,6 +143,77 @@ test("flushBatchedUpdate does nothing before the configured updateInterval has e
   assert.equal(temperatureCharacteristic.value, 21);
 });
 
+test("setTemperature pushes the offset-adjusted value to the HomeKit characteristic, not the raw reading", () => {
+  const { handler, platformAccessory } = createHandler({
+    temperatureOffset: 1.5,
+  });
+  const temperatureCharacteristic = platformAccessory
+    .getService(Service.TemperatureSensor)
+    .getCharacteristic(Characteristic.CurrentTemperature);
+
+  handler.setTemperature(20);
+  assert.equal(temperatureCharacteristic.value, 21.5);
+});
+
+test("setHumidity pushes the offset-adjusted value to the HomeKit characteristic, not the raw reading", () => {
+  const { handler, platformAccessory } = createHandler({ humidityOffset: -2 });
+  const humidityCharacteristic = platformAccessory
+    .getService(Service.HumiditySensor)
+    .getCharacteristic(Characteristic.CurrentRelativeHumidity);
+
+  handler.setHumidity(50);
+  assert.equal(humidityCharacteristic.value, 48);
+});
+
+test("flushBatchedUpdate does not corrupt the stored raw reading with the offset", () => {
+  // A regression test for a subtler variant of the same bug: flushBatchedUpdate
+  // used to force-repush setTemperature/setHumidity with the *offset-adjusted*
+  // getter value, which got stored right back into latestTemperature/
+  // latestHumidity - baking the offset into what's supposed to be the raw
+  // reading. It went unnoticed on the pushed HomeKit value itself (a fresh
+  // raw setTemperature() call on the next advertisement overwrites the
+  // corruption before it's visible there), but it double-applies the offset
+  // to anything reading the temperature/humidity getters within that same
+  // flush - Fakegato and MQTT - see the next test.
+  const { handler } = createHandler({
+    updateInterval: 5,
+    temperatureOffset: 1.5,
+    humidityOffset: -2,
+  });
+
+  handler.setTemperature(20);
+  handler.setHumidity(50);
+  handler.flushBatchedUpdate();
+
+  assert.equal(handler.temperature, 21.5, "must not become 21.5 + 1.5");
+  assert.equal(handler.humidity, 48, "must not become 48 - 2");
+});
+
+test("flushBatchedUpdate does not double-apply the offset to the Fakegato history entry", () => {
+  const { handler } = createHandler({
+    updateInterval: 5,
+    temperatureOffset: 1.5,
+    humidityOffset: -2,
+    fakeGatoEnabled: true,
+  });
+  const service = handler.fakeGatoHistoryService;
+
+  handler.setTemperature(20);
+  handler.setHumidity(50);
+  handler.flushBatchedUpdate();
+
+  // Not asserting a specific entry count: flushBatchedUpdate's forced
+  // setTemperature/setHumidity calls can each independently add an entry
+  // once both values are known (a separate, pre-existing quirk), so more
+  // than one identical entry here is expected and not what this test is
+  // about - it's specifically about the offset not being double-applied.
+  assert.ok(service.entries.length >= 1);
+  for (const entry of service.entries) {
+    assert.equal(entry.temp, 21.5);
+    assert.equal(entry.humidity, 48);
+  }
+});
+
 test("batteryStatus is NORMAL above the low-battery threshold and LOW at or below it", () => {
   const { handler } = createHandler({ lowBattery: 20 });
   handler.setBatteryLevel(50);
@@ -232,6 +305,92 @@ test("setRSSI(null) is ignored", () => {
   handler.setRSSI(-55);
   handler.setRSSI(null);
   assert.equal(handler.rssi, -55);
+});
+
+test("setTemperature pushes the offset-adjusted value to a configured Matter accessory", () => {
+  const matterAccessory = createFakeMatterAccessory();
+  const { handler } = createHandler(
+    { temperatureOffset: 1.5 },
+    undefined,
+    matterAccessory,
+  );
+  handler.setTemperature(20);
+  assert.deepEqual(matterAccessory.temperatureCalls, [21.5]);
+});
+
+test("setHumidity pushes the offset-adjusted value to a configured Matter accessory", () => {
+  const matterAccessory = createFakeMatterAccessory();
+  const { handler } = createHandler(
+    { humidityOffset: -2 },
+    undefined,
+    matterAccessory,
+  );
+  handler.setHumidity(50);
+  assert.deepEqual(matterAccessory.humidityCalls, [48]);
+});
+
+test("with no Matter accessory configured, setTemperature/setHumidity do not throw", () => {
+  const { handler } = createHandler({});
+  assert.doesNotThrow(() => {
+    handler.setTemperature(20);
+    handler.setHumidity(50);
+  });
+});
+
+test("a sensor that goes silent pushes null to the Matter accessory once its timeout elapses, instead of freezing on the last reading", (t) => {
+  // Matter has no per-read "get" callback for these clusters the way HAP
+  // does, so nothing re-evaluates hasTimedOut() once advertisements stop
+  // arriving unless something proactively schedules it - see
+  // scheduleMatterTimeoutCheck.
+  t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
+  const matterAccessory = createFakeMatterAccessory();
+  const { handler } = createHandler(
+    { timeout: 1 }, // 1 minute
+    undefined,
+    matterAccessory,
+  );
+
+  handler.setTemperature(20);
+  handler.setHumidity(50);
+  assert.deepEqual(matterAccessory.temperatureCalls, [20]);
+  assert.deepEqual(matterAccessory.humidityCalls, [50]);
+
+  t.mock.timers.tick(61 * 1000);
+
+  assert.deepEqual(matterAccessory.temperatureCalls, [20, null]);
+  assert.deepEqual(matterAccessory.humidityCalls, [50, null]);
+});
+
+test("a fresh reading before the timeout elapses cancels the pending Matter timeout push", (t) => {
+  t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
+  const matterAccessory = createFakeMatterAccessory();
+  const { handler } = createHandler(
+    { timeout: 1 }, // 1 minute
+    undefined,
+    matterAccessory,
+  );
+
+  handler.setTemperature(20);
+  t.mock.timers.tick(50 * 1000); // well under the 60s timeout
+  handler.setTemperature(21); // resets the schedule
+  t.mock.timers.tick(50 * 1000); // 100s total, but only 50s since the reset
+
+  assert.deepEqual(
+    matterAccessory.temperatureCalls,
+    [20, 21],
+    "must not have pushed null - the timeout never actually elapsed after the reset",
+  );
+});
+
+test("timeout: 0 never schedules a Matter timeout push", (t) => {
+  t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
+  const matterAccessory = createFakeMatterAccessory();
+  const { handler } = createHandler({ timeout: 0 }, undefined, matterAccessory);
+
+  handler.setTemperature(20);
+  t.mock.timers.tick(1000 * 60 * 60 * 24);
+
+  assert.deepEqual(matterAccessory.temperatureCalls, [20]);
 });
 
 test("reconstructing a handler against an accessory that already has its RSSI/Last Seen characteristics (simulating a restored cached accessory) does not throw", () => {
