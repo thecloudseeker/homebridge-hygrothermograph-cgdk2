@@ -278,7 +278,7 @@ This plugin supports Homebridge's experimental Matter bridging, in addition to (
 
 Matter is a Homebridge 2.4+ feature and is still evolving; on older Homebridge versions this plugin simply skips it and behaves exactly as before. Diagnostics (RSSI, Last Seen, StatusFault/"Not Responding") and Battery are HomeKit-only for now — Matter only carries Temperature and Humidity.
 
-In Apple Home specifically, both tiles show the sensor's overall name rather than "Temperature"/"Humidity" individually — a HomeKit limitation with Matter's composed-device model, not something this plugin can override. Other Matter controllers (Google Home, Alexa, SmartThings) may show the individual tile names correctly.
+Each sensor is exposed as two separate Matter devices — named `<sensor name> Temperature` and `<sensor name> Humidity` — rather than one device with two sub-endpoints. Composed devices are handled inconsistently by Matter controllers, so this keeps each reading independently addressable.
 
 ## Technical details
 The plugin scans for [Bluetooth Low Energy](https://en.wikipedia.org/wiki/Bluetooth_Low_Energy) peripherals and check the broadcast advertisement packets.

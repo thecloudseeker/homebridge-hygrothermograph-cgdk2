@@ -772,7 +772,7 @@ test("with Matter available but not enabled on this bridge, no Matter accessory 
   assert.equal(api.matter.accessories.size, 0);
 });
 
-test("with Matter enabled, a newly discovered sensor also gets a composed Matter accessory registered", () => {
+test("with Matter enabled, a newly discovered sensor registers a flat temperature and humidity sensor", () => {
   const { HygrothermographCgdk2Platform, createdScanners } = loadPlatform();
   const api = new FakeAPI({ matterAvailable: true, matterEnabled: true });
   const platform = new HygrothermographCgdk2Platform(
@@ -787,18 +787,21 @@ test("with Matter enabled, a newly discovered sensor also gets a composed Matter
 
   const handler = platform.handlers.get("4c64a8d0ae65");
   assert.notEqual(handler.matterAccessory, undefined);
-  assert.equal(api.matter.accessories.size, 1);
-  const [registered] = api.matter.accessories.values();
-  assert.equal(registered.UUID, handler.matterAccessory.UUID);
-  assert.equal(registered.deviceType, api.matter.deviceTypes.BridgedNode);
-  assert.equal(registered.parts.length, 2);
+  assert.equal(api.matter.accessories.size, 2);
+  assert.deepEqual(
+    [...api.matter.accessories.values()].map((built) => built.deviceType),
+    [
+      api.matter.deviceTypes.TemperatureSensor,
+      api.matter.deviceTypes.HumiditySensor,
+    ],
+  );
 });
 
 // Relies on handlerFor()'s own `this.handlers` dedup (see "re-discovering
 // the same sensor ... reuses its handler" above) rather than any separate
 // Matter-specific dedup: buildMatterAccessory has none, since registerHandler
 // (its only caller) is itself never invoked twice for the same address.
-test("re-discovering the same sensor does not register a second Matter accessory", () => {
+test("re-discovering the same sensor does not register its Matter accessories again", () => {
   const { HygrothermographCgdk2Platform, createdScanners } = loadPlatform();
   const api = new FakeAPI({ matterAvailable: true, matterEnabled: true });
   new HygrothermographCgdk2Platform(createSilentLog(), {}, api);
@@ -808,7 +811,7 @@ test("re-discovering the same sensor does not register a second Matter accessory
   scanner.emit("temperatureChange", 21.5, { address: "4c:64:a8:d0:ae:65" });
   scanner.emit("temperatureChange", 21.6, { address: "4C:64:A8:D0:AE:65" });
 
-  assert.equal(api.matter.accessories.size, 1);
+  assert.equal(api.matter.accessories.size, 2, "the same two, not four");
 });
 
 test("configureMatterAccessory unregisters a cached Matter accessory whose address became ignored", () => {
@@ -889,7 +892,7 @@ test("a cached accessory restored via configureAccessory gets its Matter accesso
   api.emit("didFinishLaunching");
 
   assert.notEqual(handler.matterAccessory, undefined);
-  assert.equal(api.matter.accessories.size, 1);
+  assert.equal(api.matter.accessories.size, 2);
 });
 
 test("matterEnabled additionally requires versionGreaterOrEqual('2.4.0'), not just isMatterAvailable/isMatterEnabled", () => {

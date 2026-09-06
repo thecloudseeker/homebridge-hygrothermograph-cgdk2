@@ -1,4 +1,9 @@
 # Changelog
+## 5.5.2
+
+* Changed Matter to expose each sensor as two flat devices (a temperature sensor and a humidity sensor) instead of one composed device with sub-endpoints. Controllers rejected every subscription to the composed device, so readings never reached them. Matter accessories will need re-adding to your Matter controller.
+* Fixed `Signal Strength (RSSI)` rejecting readings below -100 dBm with "characteristic was supplied illegal value"; the range now goes to -128.
+
 ## 5.5.1
 
 * Fixed Matter registration being attempted while restoring cached accessories, before Homebridge permits it; it now happens once Homebridge has finished launching.
