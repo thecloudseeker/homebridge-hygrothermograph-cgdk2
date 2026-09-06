@@ -1,4 +1,9 @@
 # Changelog
+## 5.5.1
+
+* Fixed Matter registration being attempted while restoring cached accessories, before Homebridge permits it; it now happens once Homebridge has finished launching.
+* Added a startup log line confirming whether Matter is active for this bridge, so a bridge without it switched on is no longer silent about it.
+
 ## 5.5.0
 
 * Added Matter support alongside the existing HomeKit accessory: enable via **Enable Matter** in this plugin's child bridge settings. See [Matter (beta)](README.md#matter-beta).

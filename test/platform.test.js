@@ -908,6 +908,59 @@ test("matterEnabled additionally requires versionGreaterOrEqual('2.4.0'), not ju
   assert.equal(api.matter.accessories.size, 0);
 });
 
+test("startup confirms at info level when Matter is actually on for this bridge", () => {
+  const { HygrothermographCgdk2Platform } = loadPlatform();
+  const infos = [];
+  const log = { ...createSilentLog(), info: (...args) => infos.push(args) };
+  const api = new FakeAPI({ matterAvailable: true, matterEnabled: true });
+  new HygrothermographCgdk2Platform(log, {}, api);
+
+  api.emit("didFinishLaunching");
+
+  assert.ok(
+    infos.some(([message]) =>
+      /Matter is enabled for this bridge/.test(message),
+    ),
+  );
+});
+
+// The absence of this confirmation is the diagnostic signal - a bridge with
+// Matter switched off must otherwise stay quiet about it (see logMatterStatus).
+test("startup does not claim Matter is enabled when the bridge does not have it on", () => {
+  const { HygrothermographCgdk2Platform } = loadPlatform();
+  const infos = [];
+  const log = { ...createSilentLog(), info: (...args) => infos.push(args) };
+  const api = new FakeAPI({ matterAvailable: true, matterEnabled: false });
+  new HygrothermographCgdk2Platform(log, {}, api);
+
+  api.emit("didFinishLaunching");
+
+  assert.equal(
+    infos.some(([message]) => /Matter is enabled/.test(message)),
+    false,
+  );
+});
+
+test("Matter enabled on a Homebridge older than 2.4.0 warns rather than failing silently", () => {
+  const { HygrothermographCgdk2Platform } = loadPlatform();
+  const warnings = [];
+  const log = { ...createSilentLog(), warn: (...args) => warnings.push(args) };
+  const api = new FakeAPI({
+    matterAvailable: true,
+    matterEnabled: true,
+    matterVersionSatisfied: false,
+  });
+  new HygrothermographCgdk2Platform(log, {}, api);
+
+  api.emit("didFinishLaunching");
+
+  assert.ok(
+    warnings.some(([message]) =>
+      /Homebridge 2\.4\.0 or later is required/.test(message),
+    ),
+  );
+});
+
 // isMatterEnabled() is not a reliable "Matter works on THIS bridge" signal by
 // itself (verified against Homebridge 2.4.0's real source): on a plugin
 // running on the main bridge it is set merely because *some* bridge in the
