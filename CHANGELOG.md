@@ -1,4 +1,9 @@
 # Changelog
+## 5.5.3
+
+* Fixed `Signal Strength (RSSI)` still rejecting readings below -100 dBm on existing sensors: they restore from Homebridge's cache with the pre-5.5.2 range, which is now re-applied on every restart.
+* Fixed 127 ("RSSI not available" on some adapters) reading as a perfect signal; readings outside -128..0 dBm are ignored.
+
 ## 5.5.2
 
 * Changed Matter to expose each sensor as two flat devices (a temperature sensor and a humidity sensor) instead of one composed device with sub-endpoints. Controllers rejected every subscription to the composed device, so readings never reached them. Matter accessories will need re-adding to your Matter controller.

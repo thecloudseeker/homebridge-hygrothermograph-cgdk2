@@ -307,6 +307,54 @@ test("setRSSI(null) is ignored", () => {
   assert.equal(handler.rssi, -55);
 });
 
+test("the RSSI characteristic accepts the full int8 range BLE reports", () => {
+  const { handler, platformAccessory } = createHandler({});
+  const rssiCharacteristic = platformAccessory
+    .getService(Service.TemperatureSensor)
+    .getCharacteristic(RSSICharacteristic);
+
+  assert.equal(rssiCharacteristic.props.minValue, -128);
+  assert.equal(rssiCharacteristic.props.maxValue, 0);
+
+  // Real sensors do drop below -100; HAP rejects (and Homebridge warns about)
+  // anything outside the declared range instead of clamping it.
+  handler.setRSSI(-102);
+  assert.equal(rssiCharacteristic.value, -102);
+});
+
+test("restoring a cached accessory widens an RSSI range narrowed by an older version", () => {
+  const { platformAccessory } = createHandler({});
+  const rssiCharacteristic = platformAccessory
+    .getService(Service.TemperatureSensor)
+    .getCharacteristic(RSSICharacteristic);
+  // Homebridge serializes characteristic props into its accessory cache, so a
+  // restored accessory carries whatever range the version that wrote the cache
+  // declared - here the pre-5.5.2 -100 floor - and its constructor never runs
+  // again to correct it.
+  rssiCharacteristic.setProps({ minValue: -100 });
+
+  new HygrothermographCgdk2AccessoryHandler(
+    platformAccessory,
+    { address: "4c:64:a8:d0:ae:65" },
+    createSilentLog(),
+  );
+
+  assert.equal(rssiCharacteristic.props.minValue, -128);
+});
+
+test("setRSSI ignores a reading outside the int8 range, such as 127 (RSSI unavailable)", () => {
+  const { handler, platformAccessory } = createHandler({});
+  const rssiCharacteristic = platformAccessory
+    .getService(Service.TemperatureSensor)
+    .getCharacteristic(RSSICharacteristic);
+
+  handler.setRSSI(-55);
+  handler.setRSSI(127);
+
+  assert.equal(handler.rssi, -55);
+  assert.equal(rssiCharacteristic.value, -55);
+});
+
 test("setTemperature pushes the offset-adjusted value to a configured Matter accessory", () => {
   const matterAccessory = createFakeMatterAccessory();
   const { handler } = createHandler(
