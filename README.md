@@ -292,7 +292,7 @@ This plugin supports Homebridge's experimental Matter bridging, in addition to (
 
 Each sensor is exposed as **one** Matter device, named after the sensor, with a Temperature and a Humidity reading and its battery level (unless `disableBatteryLevel` is set). When the battery is at or below `lowBattery`, it's reported as low.
 
-> **5.8.0 beta:** puts temperature and humidity on a single Matter endpoint, so controllers that list every endpoint separately (e.g. IKEA Dirigera) show one sensor instead of two. Because of a Homebridge limitation ([#4018](https://github.com/homebridge/homebridge/issues/4018)), the device gets a new Matter `uniqueId` on every Homebridge restart, which some controllers may treat as a new device. Install it with `sudo hb-service add @thecloudseeker/homebridge-hygrothermograph-cgdk2@beta`; the stable release (5.7.0) uses a device with separate temperature and humidity parts.
+Temperature and humidity share a single Matter endpoint, so controllers that list every endpoint separately (e.g. IKEA Dirigera) show one sensor instead of two. Because of a Homebridge limitation ([#4018](https://github.com/homebridge/homebridge/issues/4018)), the device gets a new Matter `uniqueId` on every Homebridge restart. Dirigera keeps the device, its name and room across restarts; other controllers are untested.
 
 Matter is a Homebridge 2.4+ feature and is still evolving; on older Homebridge versions this plugin simply skips it and behaves exactly as before. Diagnostics (RSSI, Last Seen, StatusFault/"Not Responding") are HomeKit-only.
 
