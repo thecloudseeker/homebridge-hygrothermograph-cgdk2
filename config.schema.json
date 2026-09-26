@@ -2,10 +2,16 @@
   "pluginAlias": "HygrotermographCGDK2",
   "pluginType": "platform",
   "singular": true,
-  "headerDisplay": "Sensors are discovered automatically over Bluetooth — no need to list them below unless you want to customize a specific one or ignore an unwanted one.",
+  "headerDisplay": "Sensors are discovered automatically over Bluetooth — no need to list them below unless you want to customize a specific one or ignore an unwanted one. To expose only specific sensors, turn off Auto-Discovery and list them under Per-Sensor Overrides.",
   "schema": {
     "type": "object",
     "properties": {
+      "autoDiscovery": {
+        "title": "Auto-Discovery",
+        "type": "boolean",
+        "default": true,
+        "description": "Expose every CGDK2 sensor found over Bluetooth. Turn off to expose only the sensors listed under Per-Sensor Overrides; any other sensor (including one previously auto-discovered) is removed."
+      },
       "ignoredAddresses": {
         "title": "Ignored Sensor Addresses",
         "type": "array",
@@ -110,7 +116,7 @@
             }
           }
         },
-        "description": "Optional. Customize a specific sensor once you know its address (see README > Multiple sensors), or override any default below just for it. Sensors not listed here are still discovered and exposed automatically using the defaults."
+        "description": "Optional. Customize a specific sensor once you know its address (see README > Multiple sensors), or override any default below just for it. Sensors not listed here are still discovered and exposed automatically using the defaults, unless Auto-Discovery is turned off."
       },
       "timeout": {
         "title": "Timeout (minutes)",
@@ -201,6 +207,7 @@
     }
   },
   "layout": [
+    "autoDiscovery",
     {
       "type": "fieldset",
       "title": "Ignored / Per-Sensor Overrides",

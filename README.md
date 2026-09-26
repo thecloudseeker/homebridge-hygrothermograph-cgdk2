@@ -145,7 +145,21 @@ To stop an unwanted sensor from showing up at all (e.g. a neighbor's, picked up 
 ]
 ```
 
-The easiest way to find a sensor's address for either of the above is to run Homebridge in debug mode (`homebridge -D`) with the sensor nearby and paired via the Qingping+ app. The plugin only logs peripherals whose advertisement matches its Bluetooth service data, so a line like:
+If you'd rather expose only specific sensors and nothing else, set `autoDiscovery` to `false` (the **Auto-Discovery** toggle in the Homebridge UI) and list the ones you want under `sensors` — every other sensor is ignored, and any previously auto-discovered accessory not in that list is removed:
+
+```json
+"platforms": [
+    {
+      "platform": "HygrotermographCGDK2",
+      "autoDiscovery": false,
+      "sensors": [
+        { "address": "4c:64:a8:d0:ae:65", "name": "Living Room" }
+      ]
+    }
+]
+```
+
+The easiest way to find a sensor's address for any of the above is to run Homebridge in debug mode (`homebridge -D`) with the sensor nearby and paired via the Qingping+ app. The plugin only logs peripherals whose advertisement matches its Bluetooth service data, so a line like:
 
 ```
 [4c:64:a8:d0:ae:65] Discovered peripheral -> ...

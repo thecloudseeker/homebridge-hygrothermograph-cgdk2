@@ -1,4 +1,8 @@
 # Changelog
+## 5.6.0
+
+* Added `autoDiscovery` (**Auto-Discovery** in the Homebridge UI, on by default). Turn it off to expose only the sensors listed under `sensors`; any other sensor is ignored, and a previously auto-discovered one is removed. See [Customizing or ignoring a sensor](README.md#customizing-or-ignoring-a-sensor).
+
 ## 5.5.3
 
 * Fixed `Signal Strength (RSSI)` still rejecting readings below -100 dBm on existing sensors: they restore from Homebridge's cache with the pre-5.5.2 range, which is now re-applied on every restart.

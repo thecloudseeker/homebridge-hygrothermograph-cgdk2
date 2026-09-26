@@ -1006,3 +1006,118 @@ test("a rejected Matter registration marks the accessory failed (once, not regis
   assert.equal(handler.matterAccessory.registrationFailed, true);
   assert.equal(errors.length, 1);
 });
+
+test("with autoDiscovery off, only sensors listed under sensors[] get an accessory", () => {
+  const { HygrothermographCgdk2Platform, createdScanners } = loadPlatform();
+  const api = new FakeAPI();
+  const platform = new HygrothermographCgdk2Platform(
+    createSilentLog(),
+    { autoDiscovery: false, sensors: [{ address: "4C:64:A8:D0:AE:65" }] },
+    api,
+  );
+  api.emit("didFinishLaunching");
+  const scanner = latestScanner(createdScanners);
+
+  scanner.emit("temperatureChange", 21.5, { address: "4c:64:a8:d0:ae:65" });
+  scanner.emit("temperatureChange", 19.0, { address: "2c:34:b3:d4:a1:61" });
+  scanner.emit("change", "temperature", { address: "2c:34:b3:d4:a1:61" });
+
+  assert.equal(platform.handlers.size, 1);
+  assert.equal(api.registered.length, 1);
+  assert.ok(platform.handlers.has("4c64a8d0ae65"));
+});
+
+test("with autoDiscovery off, ignoredAddresses still wins over a sensors[] entry", () => {
+  const { HygrothermographCgdk2Platform, createdScanners } = loadPlatform();
+  const api = new FakeAPI();
+  const platform = new HygrothermographCgdk2Platform(
+    createSilentLog(),
+    {
+      autoDiscovery: false,
+      sensors: [{ address: "4c:64:a8:d0:ae:65" }],
+      ignoredAddresses: ["4c:64:a8:d0:ae:65"],
+    },
+    api,
+  );
+  api.emit("didFinishLaunching");
+
+  latestScanner(createdScanners).emit("temperatureChange", 21.5, {
+    address: "4c:64:a8:d0:ae:65",
+  });
+
+  assert.equal(platform.handlers.size, 0);
+});
+
+test("with autoDiscovery off, configureAccessory unregisters a cached accessory not listed under sensors[]", () => {
+  const { HygrothermographCgdk2Platform } = loadPlatform();
+  const api = new FakeAPI();
+  const platform = new HygrothermographCgdk2Platform(
+    createSilentLog(),
+    { autoDiscovery: false, sensors: [{ address: "4c:64:a8:d0:ae:65" }] },
+    api,
+  );
+  const listed = new FakePlatformAccessory("Living Room", "uuid:listed");
+  listed.context.address = "4c:64:a8:d0:ae:65";
+  const unlisted = new FakePlatformAccessory("CGDK2 A1:61", "uuid:unlisted");
+  unlisted.context.address = "2c:34:b3:d4:a1:61";
+
+  platform.configureAccessory(listed);
+  platform.configureAccessory(unlisted);
+
+  assert.deepEqual([...platform.handlers.keys()], ["4c64a8d0ae65"]);
+  assert.deepEqual(api.unregistered, [unlisted]);
+});
+
+test("with autoDiscovery off, configureMatterAccessory unregisters a cached Matter accessory not listed under sensors[]", () => {
+  const { HygrothermographCgdk2Platform } = loadPlatform();
+  const matter = createFakeMatter();
+  const cachedMatterAccessory = {
+    UUID: "matter-uuid:cached",
+    displayName: "CGDK2 A1:61",
+    context: { address: "2c:34:b3:d4:a1:61" },
+  };
+  matter.accessories.set(cachedMatterAccessory.UUID, cachedMatterAccessory);
+  const api = new FakeAPI({
+    matterAvailable: true,
+    matterEnabled: true,
+    matter,
+  });
+  const platform = new HygrothermographCgdk2Platform(
+    createSilentLog(),
+    { autoDiscovery: false, sensors: [{ address: "4c:64:a8:d0:ae:65" }] },
+    api,
+  );
+
+  platform.configureMatterAccessory(cachedMatterAccessory);
+
+  assert.equal(matter.accessories.has(cachedMatterAccessory.UUID), false);
+});
+
+test("autoDiscovery off with no sensors listed warns that nothing will be exposed", () => {
+  const { HygrothermographCgdk2Platform } = loadPlatform();
+  const api = new FakeAPI();
+  const log = createSilentLog();
+  const warnings = [];
+  log.warn = (...args) => warnings.push(args.join(" "));
+  new HygrothermographCgdk2Platform(log, { autoDiscovery: false }, api);
+
+  api.emit("didFinishLaunching");
+
+  assert.ok(
+    warnings.some((message) => message.includes("no sensors will be exposed")),
+  );
+});
+
+test("autoDiscovery does not leak into a sensor's merged config", () => {
+  const { HygrothermographCgdk2Platform } = loadPlatform();
+  const platform = new HygrothermographCgdk2Platform(
+    createSilentLog(),
+    { autoDiscovery: false, sensors: [{ address: "4c:64:a8:d0:ae:65" }] },
+    new FakeAPI(),
+  );
+
+  assert.equal(
+    "autoDiscovery" in platform.configFor("4c:64:a8:d0:ae:65"),
+    false,
+  );
+});
