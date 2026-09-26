@@ -24,78 +24,101 @@ function createRegisteredMatterAccessory(...args) {
   return result;
 }
 
-test("toAccessories() builds two flat sensors rather than one composed device with parts", () => {
-  const { accessory, matter } = createMatterAccessory();
-  const [temperature, humidity] = accessory.toAccessories();
+function partOf(built, id) {
+  return built.parts.find((part) => part.id === id);
+}
 
-  assert.equal(accessory.toAccessories().length, 2);
-  assert.equal(temperature.deviceType, matter.deviceTypes.TemperatureSensor);
-  assert.equal(humidity.deviceType, matter.deviceTypes.HumiditySensor);
-  for (const built of [temperature, humidity]) {
-    assert.equal(
-      built.parts,
-      undefined,
-      "a composed device had every subscription to it rejected by the controller",
-    );
-    assert.notEqual(built.deviceType, matter.deviceTypes.BridgedNode);
-    assert.deepEqual(built.context, { address: "58:2d:34:13:20:a8" });
-  }
+test("toAccessories() builds one composed device with a temperature and a humidity part", () => {
+  const { accessory, matter } = createMatterAccessory();
+  const built = accessory.toAccessories();
+
+  assert.equal(built.length, 1);
+  const [device] = built;
+  assert.equal(device.deviceType, matter.deviceTypes.BridgedNode);
+  assert.deepEqual(
+    device.parts.map((part) => [part.id, part.deviceType]),
+    [
+      ["temperature", matter.deviceTypes.TemperatureSensor],
+      ["humidity", matter.deviceTypes.HumiditySensor],
+    ],
+  );
+  assert.deepEqual(device.context, { address: "58:2d:34:13:20:a8" });
 });
 
-test("each sensor gets its own UUID, serial number and name", () => {
+test("the device carries the sensor name, and each part its own reading name", () => {
   const { accessory } = createMatterAccessory();
-  const [temperature, humidity] = accessory.toAccessories();
+  const [device] = accessory.toAccessories();
 
-  assert.notEqual(temperature.UUID, humidity.UUID);
-  assert.notEqual(temperature.serialNumber, humidity.serialNumber);
-  assert.equal(temperature.displayName, "CGDK2 20A8 Temperature");
-  assert.equal(humidity.displayName, "CGDK2 20A8 Humidity");
+  assert.equal(device.displayName, "CGDK2 20A8");
+  assert.equal(partOf(device, "temperature").displayName, "Temperature");
+  assert.equal(partOf(device, "humidity").displayName, "Humidity");
+  assert.equal(device.serialNumber, "582d341320a8");
 });
 
 test("names and serial numbers are trimmed to the 32 characters Matter allows", () => {
   const { accessory } = createMatterAccessory(createFakeMatter(), {
+    address: "5C61F8CE-9F0B-4371-B996-5C9AE0E0D14B",
     name: "A really quite excessively long sensor name",
+    temperatureName: "A really quite excessively long temperature name",
   });
-  const [temperature, humidity] = accessory.toAccessories();
+  const [device] = accessory.toAccessories();
 
-  for (const built of [temperature, humidity]) {
-    assert.ok(built.displayName.length <= 32);
-    assert.ok(built.serialNumber.length <= 32);
-  }
+  assert.ok(device.displayName.length <= 32);
+  assert.ok(device.serialNumber.length <= 32);
+  assert.ok(partOf(device, "temperature").displayName.length <= 32);
 });
 
-test("the initial cluster state is null (no reading yet), not a placeholder number", () => {
+test("the device declares a battery PowerSource with every attribute the Battery feature requires", () => {
   const { accessory } = createMatterAccessory();
-  const [temperature, humidity] = accessory.toAccessories();
+  const [device] = accessory.toAccessories();
 
-  assert.equal(temperature.clusters.temperatureMeasurement.measuredValue, null);
+  assert.deepEqual(device.clusters.powerSource, {
+    status: 1,
+    order: 0,
+    description: "Battery",
+    endpointList: [],
+    batPercentRemaining: null,
+    batChargeLevel: 0,
+    batReplacementNeeded: false,
+    batReplaceability: 0,
+  });
+});
+
+test("the initial reading state is null (no reading yet), not a placeholder number", () => {
+  const { accessory } = createMatterAccessory();
+  const [device] = accessory.toAccessories();
+
   assert.equal(
-    humidity.clusters.relativeHumidityMeasurement.measuredValue,
+    partOf(device, "temperature").clusters.temperatureMeasurement.measuredValue,
+    null,
+  );
+  assert.equal(
+    partOf(device, "humidity").clusters.relativeHumidityMeasurement
+      .measuredValue,
     null,
   );
 });
 
 test("the declared temperature range is much wider than the sensor's physical range, to tolerate a configured offset", () => {
   const { accessory } = createMatterAccessory();
-  const [temperature] = accessory.toAccessories();
+  const { temperatureMeasurement } = partOf(
+    accessory.toAccessories()[0],
+    "temperature",
+  ).clusters;
 
-  assert.equal(
-    temperature.clusters.temperatureMeasurement.minMeasuredValue,
-    -5000,
-  );
-  assert.equal(
-    temperature.clusters.temperatureMeasurement.maxMeasuredValue,
-    10000,
-  );
+  assert.equal(temperatureMeasurement.minMeasuredValue, -5000);
+  assert.equal(temperatureMeasurement.maxMeasuredValue, 10000);
 });
 
-test("the UUIDs are derived from the address and are stable across instances", () => {
+test("the UUID is derived from the address, stable across instances, and matches uuidFor()", () => {
   const matter = createFakeMatter();
   const { accessory: first } = createMatterAccessory(matter);
   const { accessory: second } = createMatterAccessory(matter);
-  assert.deepEqual(
-    first.toAccessories().map((built) => built.UUID),
-    second.toAccessories().map((built) => built.UUID),
+
+  assert.equal(first.accessory.UUID, second.accessory.UUID);
+  assert.equal(
+    first.accessory.UUID,
+    Cgdk2MatterAccessory.uuidFor(matter, "58:2D:34:13:20:A8"),
   );
 });
 
@@ -107,16 +130,14 @@ test("two different addresses get different UUIDs", () => {
   const { accessory: second } = createMatterAccessory(matter, {
     address: "4c:64:a8:d0:ae:65",
   });
-  assert.notEqual(
-    first.temperatureAccessory.UUID,
-    second.temperatureAccessory.UUID,
-  );
-  assert.notEqual(first.humidityAccessory.UUID, second.humidityAccessory.UUID);
+  assert.notEqual(first.accessory.UUID, second.accessory.UUID);
 });
 
 test("pushState does nothing before markRegistered() has been called", async () => {
   const { accessory, matter } = createMatterAccessory();
   await accessory.updateTemperature(21.3);
+  await accessory.updateBattery(80, 10);
+  await accessory.syncNodeLabel();
   assert.equal(matter.stateUpdates.length, 0);
 });
 
@@ -128,30 +149,32 @@ test("pushState does nothing after markRegistrationFailed() has been called", as
   assert.equal(matter.stateUpdates.length, 0);
 });
 
-test("updateTemperature pushes measuredValue in hundredths of a degree to the temperature sensor", async () => {
+test("updateTemperature pushes measuredValue in hundredths of a degree to the temperature part", async () => {
   const { accessory, matter } = createRegisteredMatterAccessory();
   await accessory.updateTemperature(21.3);
 
-  assert.equal(matter.stateUpdates.length, 1);
-  assert.deepEqual(matter.stateUpdates[0], {
-    uuid: accessory.temperatureAccessory.UUID,
-    cluster: "temperatureMeasurement",
-    attributes: { measuredValue: 2130 },
-    partId: undefined,
-  });
+  assert.deepEqual(matter.stateUpdates, [
+    {
+      uuid: accessory.accessory.UUID,
+      cluster: "temperatureMeasurement",
+      attributes: { measuredValue: 2130 },
+      partId: "temperature",
+    },
+  ]);
 });
 
-test("updateHumidity pushes measuredValue in hundredths of a percent to the humidity sensor", async () => {
+test("updateHumidity pushes measuredValue in hundredths of a percent to the humidity part", async () => {
   const { accessory, matter } = createRegisteredMatterAccessory();
   await accessory.updateHumidity(55.5);
 
-  assert.equal(matter.stateUpdates.length, 1);
-  assert.deepEqual(matter.stateUpdates[0], {
-    uuid: accessory.humidityAccessory.UUID,
-    cluster: "relativeHumidityMeasurement",
-    attributes: { measuredValue: 5550 },
-    partId: undefined,
-  });
+  assert.deepEqual(matter.stateUpdates, [
+    {
+      uuid: accessory.accessory.UUID,
+      cluster: "relativeHumidityMeasurement",
+      attributes: { measuredValue: 5550 },
+      partId: "humidity",
+    },
+  ]);
 });
 
 test("updateHumidity clamps an offset-adjusted value to the 0-100 range Matter allows", async () => {
@@ -173,6 +196,58 @@ test("updateTemperature(null) and updateHumidity(null) push null - Matter's own 
   assert.equal(matter.stateUpdates.length, 2);
   assert.equal(matter.stateUpdates[0].attributes.measuredValue, null);
   assert.equal(matter.stateUpdates[1].attributes.measuredValue, null);
+});
+
+test("updateBattery pushes batPercentRemaining in half-percent units to the device itself, not a part", async () => {
+  const { accessory, matter } = createRegisteredMatterAccessory();
+  await accessory.updateBattery(87, 10);
+
+  assert.deepEqual(matter.stateUpdates, [
+    {
+      uuid: accessory.accessory.UUID,
+      cluster: "powerSource",
+      attributes: { batPercentRemaining: 174, batChargeLevel: 0 },
+      partId: undefined,
+    },
+  ]);
+});
+
+test("updateBattery flags a warning at or below the low-battery threshold, matching HAP's StatusLowBattery", async () => {
+  const { accessory, matter } = createRegisteredMatterAccessory();
+  await accessory.updateBattery(11, 10);
+  await accessory.updateBattery(10, 10);
+  await accessory.updateBattery(3, 10);
+
+  assert.deepEqual(
+    matter.stateUpdates.map((update) => update.attributes.batChargeLevel),
+    [0, 1, 1],
+  );
+});
+
+test("updateBattery clamps to 0-100% and pushes null when there is no reading", async () => {
+  const { accessory, matter } = createRegisteredMatterAccessory();
+  await accessory.updateBattery(120, 10);
+  await accessory.updateBattery(-5, 10);
+  await accessory.updateBattery(null);
+
+  assert.deepEqual(
+    matter.stateUpdates.map((update) => update.attributes.batPercentRemaining),
+    [200, 0, null],
+  );
+});
+
+test("syncNodeLabel pushes the sensor's current name as the device's NodeLabel", async () => {
+  const { accessory, matter } = createRegisteredMatterAccessory();
+  await accessory.syncNodeLabel();
+
+  assert.deepEqual(matter.stateUpdates, [
+    {
+      uuid: accessory.accessory.UUID,
+      cluster: "bridgedDeviceBasicInformation",
+      attributes: { nodeLabel: "CGDK2 20A8" },
+      partId: undefined,
+    },
+  ]);
 });
 
 test("a rejected updateAccessoryState is logged rather than thrown", async () => {

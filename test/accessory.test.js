@@ -377,6 +377,32 @@ test("setHumidity pushes the offset-adjusted value to a configured Matter access
   assert.deepEqual(matterAccessory.humidityCalls, [48]);
 });
 
+test("setBatteryLevel pushes the level and the low-battery threshold to a configured Matter accessory", () => {
+  const matterAccessory = createFakeMatterAccessory();
+  const { handler } = createHandler(
+    { lowBattery: 20 },
+    undefined,
+    matterAccessory,
+  );
+  handler.setBatteryLevel(87);
+  assert.deepEqual(matterAccessory.batteryCalls, [[87, 20]]);
+});
+
+test("disableBatteryLevel keeps the battery level out of Matter as well", (t) => {
+  t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
+  const matterAccessory = createFakeMatterAccessory();
+  const { handler } = createHandler(
+    { disableBatteryLevel: true, timeout: 1 },
+    undefined,
+    matterAccessory,
+  );
+  handler.setBatteryLevel(87);
+  handler.setTemperature(20);
+  t.mock.timers.tick(61 * 1000);
+
+  assert.deepEqual(matterAccessory.batteryCalls, []);
+});
+
 test("with no Matter accessory configured, setTemperature/setHumidity do not throw", () => {
   const { handler } = createHandler({});
   assert.doesNotThrow(() => {
@@ -400,13 +426,16 @@ test("a sensor that goes silent pushes null to the Matter accessory once its tim
 
   handler.setTemperature(20);
   handler.setHumidity(50);
+  handler.setBatteryLevel(90);
   assert.deepEqual(matterAccessory.temperatureCalls, [20]);
   assert.deepEqual(matterAccessory.humidityCalls, [50]);
+  assert.deepEqual(matterAccessory.batteryCalls, [[90, 10]]);
 
   t.mock.timers.tick(61 * 1000);
 
   assert.deepEqual(matterAccessory.temperatureCalls, [20, null]);
   assert.deepEqual(matterAccessory.humidityCalls, [50, null]);
+  assert.deepEqual(matterAccessory.batteryCalls, [[90, 10], [null]]);
 });
 
 test("a fresh reading before the timeout elapses cancels the pending Matter timeout push", (t) => {

@@ -288,11 +288,13 @@ At startup, the plugin also logs a confirmation the first time each sensor actua
 
 ### Matter (beta)
 
-This plugin supports Homebridge's experimental Matter bridging, in addition to (not instead of) its normal HomeKit accessories. Enable it via **Enable Matter** in this plugin's child bridge settings in the Homebridge UI — no separate setting is needed in this plugin's own config. Once enabled, each sensor also registers as a Matter device with separate Temperature and Humidity tiles, so it can be added to Google Home, Amazon Alexa, SmartThings, or any other Matter controller alongside its existing HomeKit pairing.
+This plugin supports Homebridge's experimental Matter bridging, in addition to (not instead of) its normal HomeKit accessories. Enable it via **Enable Matter** in this plugin's child bridge settings in the Homebridge UI — no separate setting is needed in this plugin's own config. Once enabled, each sensor also registers as a Matter device, so it can be added to Apple Home, IKEA Dirigera, Google Home, Amazon Alexa, SmartThings, or any other Matter controller alongside its existing HomeKit pairing.
 
-Matter is a Homebridge 2.4+ feature and is still evolving; on older Homebridge versions this plugin simply skips it and behaves exactly as before. Diagnostics (RSSI, Last Seen, StatusFault/"Not Responding") and Battery are HomeKit-only for now — Matter only carries Temperature and Humidity.
+Each sensor is exposed as **one** Matter device, named after the sensor, with a Temperature and a Humidity reading and its battery level (unless `disableBatteryLevel` is set) — the same shape as a native Matter temperature/humidity sensor. When the battery is at or below `lowBattery`, it's reported as low.
 
-Each sensor is exposed as two separate Matter devices — named `<sensor name> Temperature` and `<sensor name> Humidity` — rather than one device with two sub-endpoints. Composed devices are handled inconsistently by Matter controllers, so this keeps each reading independently addressable.
+Matter is a Homebridge 2.4+ feature and is still evolving; on older Homebridge versions this plugin simply skips it and behaves exactly as before. Diagnostics (RSSI, Last Seen, StatusFault/"Not Responding") are HomeKit-only.
+
+Some controllers (e.g. IKEA Dirigera) ignore the name a bridged device reports and show a placeholder until you rename it in their app. The product details they show (manufacturer "Homebridge", Homebridge's version as firmware, the child bridge's name as model) describe the Homebridge bridge itself, not the sensor.
 
 ## Technical details
 The plugin scans for [Bluetooth Low Energy](https://en.wikipedia.org/wiki/Bluetooth_Low_Energy) peripherals and check the broadcast advertisement packets.

@@ -77,11 +77,17 @@ function createFakeMatterAccessory() {
   return {
     temperatureCalls: [],
     humidityCalls: [],
+    batteryCalls: [],
     async updateTemperature(celsius) {
       this.temperatureCalls.push(celsius);
     },
     async updateHumidity(percent) {
       this.humidityCalls.push(percent);
+    },
+    async updateBattery(percent, lowThreshold) {
+      this.batteryCalls.push(
+        lowThreshold === undefined ? [percent] : [percent, lowThreshold],
+      );
     },
   };
 }

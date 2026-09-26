@@ -1,4 +1,11 @@
 # Changelog
+## 5.7.0
+
+* Changed Matter to expose each sensor as **one** device with Temperature and Humidity readings, instead of two separate devices. Controllers such as IKEA Dirigera listed the two devices as one duplicated product. The two old Matter devices are removed automatically on restart and one new device takes their place; the bridge itself stays paired, but you may need to set the device's name and room again in your controller.
+* Added battery level over Matter, reported as low at or below `lowBattery`. Not sent when `disableBatteryLevel` is set.
+* Fixed Matter device names being cut off mid-word (e.g. "Temperature & Humidity Temperatu"): the device is now named after the sensor alone. Renaming a sensor is now also passed on to Matter on restart, though some controllers keep the name they saw at pairing.
+* Fixed the temperature and humidity Matter devices getting identical serial numbers on macOS hosts; the single device now uses the sensor's address.
+
 ## 5.6.0
 
 * Added `autoDiscovery` (**Auto-Discovery** in the Homebridge UI, on by default). Turn it off to expose only the sensors listed under `sensors`; any other sensor is ignored, and a previously auto-discovered one is removed. See [Customizing or ignoring a sensor](README.md#customizing-or-ignoring-a-sensor).
