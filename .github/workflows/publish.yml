@@ -31,18 +31,33 @@ jobs:
         run: |
           LOCAL_VERSION=$(node -p "require('./package.json').version")
           PACKAGE_NAME=$(node -p "require('./package.json').name")
-          PUBLISHED_VERSION=$(npm view "$PACKAGE_NAME" version 2>/dev/null || echo "none")
-          echo "Local: $LOCAL_VERSION / Published: $PUBLISHED_VERSION"
+          # Ask for this exact version rather than comparing against `latest`:
+          # a pre-release never becomes `latest`, so that comparison would
+          # try to publish it again on every later package.json change.
+          PUBLISHED=$(npm view "$PACKAGE_NAME@$LOCAL_VERSION" version 2>/dev/null || true)
+          echo "Local: $LOCAL_VERSION / Already published: ${PUBLISHED:-no}"
           echo "version=$LOCAL_VERSION" >> "$GITHUB_OUTPUT"
-          if [ "$LOCAL_VERSION" != "$PUBLISHED_VERSION" ]; then
+          if [ -z "$PUBLISHED" ]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "changed=false" >> "$GITHUB_OUTPUT"
           fi
+          # A pre-release (e.g. 5.8.0-beta.1) goes to the `beta` dist-tag so
+          # users only get it by asking for it; `latest` stays on the stable.
+          if [[ "$LOCAL_VERSION" == *-* ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Publish
         if: steps.version-check.outputs.changed == 'true'
-        run: npm publish
+        run: |
+          if [ "${{ steps.version-check.outputs.prerelease }}" = "true" ]; then
+            npm publish --tag beta
+          else
+            npm publish
+          fi
 
       - name: Extract changelog section
         if: steps.version-check.outputs.changed == 'true'
@@ -62,6 +77,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           VERSION="${{ steps.version-check.outputs.version }}"
+          PRERELEASE_FLAG=""
+          if [ "${{ steps.version-check.outputs.prerelease }}" = "true" ]; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
           gh release create "v$VERSION" \
             --title "v$VERSION" \
-            --notes-file release-notes.md
+            --notes-file release-notes.md \
+            $PRERELEASE_FLAG
