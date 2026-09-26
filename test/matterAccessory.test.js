@@ -260,3 +260,32 @@ test("a rejected updateAccessoryState is logged rather than thrown", async () =>
   await assert.doesNotReject(() => accessory.updateTemperature(21));
   assert.equal(errors.length, 1);
 });
+
+test("readings pushed before registration are held and sent, latest per cluster, once registered", async () => {
+  const { accessory, matter } = createMatterAccessory();
+  await accessory.updateTemperature(20);
+  await accessory.updateTemperature(21.5);
+  await accessory.updateBattery(80, 10);
+  assert.equal(matter.stateUpdates.length, 0);
+
+  accessory.markRegistered();
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.deepEqual(
+    matter.stateUpdates.map(({ cluster, attributes }) => [cluster, attributes]),
+    [
+      ["temperatureMeasurement", { measuredValue: 2150 }],
+      ["powerSource", { batPercentRemaining: 160, batChargeLevel: 0 }],
+    ],
+  );
+});
+
+test("readings held before a failed registration are never sent", async () => {
+  const { accessory, matter } = createMatterAccessory();
+  await accessory.updateTemperature(20);
+  accessory.markRegistrationFailed();
+  accessory.markRegistered();
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(matter.stateUpdates.length, 0);
+});

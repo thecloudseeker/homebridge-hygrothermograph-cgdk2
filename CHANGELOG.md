@@ -1,4 +1,8 @@
 # Changelog
+## 5.8.1
+
+* Fixed Homebridge logging `Failed to update state ... is closed` (in red) on every restart of a Matter-enabled bridge. Homebridge re-creates the Matter device at startup ([homebridge/homebridge#4018](https://github.com/homebridge/homebridge/issues/4018)), and the plugin's first update arrived before that had finished. The plugin now waits a moment after registering; readings arriving meanwhile are kept and sent right after.
+
 ## 5.8.0
 
 * Changed Matter to expose each sensor as a single endpoint carrying temperature, humidity and battery, instead of a device with separate temperature and humidity parts. IKEA Dirigera lists every sensor endpoint as its own product, so 5.7.0 showed each sensor twice there. Re-pair the bridge with your Matter controllers after upgrading. Tested with IKEA Dirigera: one device, and its name, room and readings survive Homebridge restarts.
