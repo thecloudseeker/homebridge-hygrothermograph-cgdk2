@@ -10,6 +10,32 @@
 // which rejects with e.g. "Matter is not enabled for this bridge" when
 // api.matter is defined only because a *different*, unrelated bridge has
 // Matter configured (verified against Homebridge 2.4.0's real source).
+// A stand-in for a matter.js device type: enough of its shape (name, code,
+// revision, behaviors, .with()) for lib/matterAccessory.js to compose a
+// combined temperature/humidity type from, the way it does with Homebridge's
+// real api.matter.deviceTypes.
+function fakeDeviceType(name, deviceType, behaviorNames) {
+  const behaviors = Object.fromEntries(
+    behaviorNames.map((behavior) => [behavior, `${name}.${behavior}`]),
+  );
+  const type = {
+    name,
+    deviceType,
+    deviceRevision: 3,
+    behaviors,
+    with(...added) {
+      return {
+        ...type,
+        behaviors: {
+          ...behaviors,
+          ...Object.fromEntries(added.map((b) => [b.split(".").pop(), b])),
+        },
+      };
+    },
+  };
+  return type;
+}
+
 function createFakeMatter({ registrationError } = {}) {
   // Keyed by UUID, mirroring how the real Matter server tracks accessories.
   const accessories = new Map();
@@ -25,9 +51,15 @@ function createFakeMatter({ registrationError } = {}) {
       generate: (seed) => `matter-uuid:${seed}`,
     },
     deviceTypes: {
-      BridgedNode: "BridgedNode",
-      TemperatureSensor: "TemperatureSensor",
-      HumiditySensor: "HumiditySensor",
+      BridgedNode: fakeDeviceType("BridgedNode", 19, []),
+      TemperatureSensor: fakeDeviceType("TemperatureSensor", 770, [
+        "identify",
+        "temperatureMeasurement",
+      ]),
+      HumiditySensor: fakeDeviceType("HumiditySensor", 775, [
+        "identify",
+        "relativeHumidityMeasurement",
+      ]),
     },
     async registerPlatformAccessories(
       pluginIdentifier,

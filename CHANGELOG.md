@@ -1,4 +1,11 @@
 # Changelog
+## 5.8.0-beta.1
+
+**Beta** — install it on purpose (`@beta`); normal updates stay on 5.7.0.
+
+* Changed Matter to expose each sensor as a single endpoint carrying temperature, humidity and battery, instead of a device with separate temperature and humidity parts. IKEA Dirigera lists every sensor endpoint as its own product, so 5.7.0 showed each sensor twice there. Re-pair the bridge with your Matter controllers after upgrading.
+* Known issue: Homebridge (2.4.0) re-creates this kind of device on every restart, giving it a new Matter `uniqueId` each time. Controllers that identify devices by it may treat the sensor as new after a restart and lose its name, room or automations. Tracked in [homebridge/homebridge#4018](https://github.com/homebridge/homebridge/issues/4018). You may also see one "Failed to update state … is closed" error per restart; it's harmless.
+
 ## 5.7.0
 
 * Changed Matter to expose each sensor as **one** device with Temperature and Humidity readings, instead of two separate devices. Controllers such as IKEA Dirigera listed the two devices as one duplicated product. The two old Matter devices are removed automatically on restart and one new device takes their place; the bridge itself stays paired, but you may need to set the device's name and room again in your controller.

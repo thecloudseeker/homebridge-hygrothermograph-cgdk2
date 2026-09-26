@@ -772,7 +772,7 @@ test("with Matter available but not enabled on this bridge, no Matter accessory 
   assert.equal(api.matter.accessories.size, 0);
 });
 
-test("with Matter enabled, a newly discovered sensor registers one composed device with temperature and humidity parts", () => {
+test("with Matter enabled, a newly discovered sensor registers one device carrying both temperature and humidity", () => {
   const { HygrothermographCgdk2Platform, createdScanners } = loadPlatform();
   const api = new FakeAPI({ matterAvailable: true, matterEnabled: true });
   const platform = new HygrothermographCgdk2Platform(
@@ -789,14 +789,9 @@ test("with Matter enabled, a newly discovered sensor registers one composed devi
   assert.notEqual(handler.matterAccessory, undefined);
   assert.equal(api.matter.accessories.size, 1);
   const [built] = api.matter.accessories.values();
-  assert.equal(built.deviceType, api.matter.deviceTypes.BridgedNode);
-  assert.deepEqual(
-    built.parts.map((part) => part.deviceType),
-    [
-      api.matter.deviceTypes.TemperatureSensor,
-      api.matter.deviceTypes.HumiditySensor,
-    ],
-  );
+  assert.equal(built.parts, undefined);
+  assert.ok(built.deviceType.behaviors.temperatureMeasurement);
+  assert.ok(built.deviceType.behaviors.relativeHumidityMeasurement);
 });
 
 // Relies on handlerFor()'s own `this.handlers` dedup (see "re-discovering
@@ -845,7 +840,7 @@ test("configureMatterAccessory leaves a cached Matter accessory alone when its a
   const { HygrothermographCgdk2Platform } = loadPlatform();
   const matter = createFakeMatter();
   const cachedMatterAccessory = {
-    UUID: "matter-uuid:homebridge-hygrothermograph-cgdk2:matter:4c64a8d0ae65",
+    UUID: "matter-uuid:homebridge-hygrothermograph-cgdk2:matter:4c64a8d0ae65:sensor",
     displayName: "CGDK2 AE:65",
     context: { address: "4c:64:a8:d0:ae:65" },
   };
@@ -866,15 +861,15 @@ test("configureMatterAccessory leaves a cached Matter accessory alone when its a
   assert.equal(matter.accessories.has(cachedMatterAccessory.UUID), true);
 });
 
-test("configureMatterAccessory unregisters the separate temperature/humidity devices cached by 5.5.2-5.6.x", () => {
+test("configureMatterAccessory unregisters devices cached by earlier layouts (5.5.x composed, 5.5.2-5.6.x flat, 5.7.0 composed)", () => {
   const { HygrothermographCgdk2Platform } = loadPlatform();
   const matter = createFakeMatter();
-  const staleFlatAccessories = ["temperature", "humidity"].map((kind) => ({
-    UUID: `matter-uuid:homebridge-hygrothermograph-cgdk2:matter:4c64a8d0ae65:${kind}`,
+  const staleAccessories = ["", ":temperature", ":humidity"].map((kind) => ({
+    UUID: `matter-uuid:homebridge-hygrothermograph-cgdk2:matter:4c64a8d0ae65${kind}`,
     displayName: `CGDK2 AE:65 ${kind}`,
     context: { address: "4c:64:a8:d0:ae:65" },
   }));
-  for (const stale of staleFlatAccessories) {
+  for (const stale of staleAccessories) {
     matter.accessories.set(stale.UUID, stale);
   }
   const api = new FakeAPI({
@@ -888,7 +883,7 @@ test("configureMatterAccessory unregisters the separate temperature/humidity dev
     api,
   );
 
-  for (const stale of staleFlatAccessories) {
+  for (const stale of staleAccessories) {
     platform.configureMatterAccessory(stale);
   }
 
