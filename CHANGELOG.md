@@ -1,4 +1,9 @@
 # Changelog
+## 5.8.2
+
+* The Homebridge UI shows the plugin as "Qingping Temp & RH Lite (CGDK2)" instead of its package name.
+* The author link on npm points to [eikedreier.com](https://eikedreier.com/).
+
 ## 5.8.1
 
 * Fixed Homebridge logging `Failed to update state ... is closed` (in red) on every restart of a Matter-enabled bridge. Homebridge re-creates the Matter device at startup ([homebridge/homebridge#4018](https://github.com/homebridge/homebridge/issues/4018)), and the plugin's first update arrived before that had finished. The plugin now waits a moment after registering; readings arriving meanwhile are kept and sent right after.
